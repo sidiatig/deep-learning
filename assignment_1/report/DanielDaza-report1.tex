@@ -1,0 +1,299 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2018
+
+% ready for submission
+% \usepackage{neurips_2018}
+
+% to compile a preprint version, e.g., for submission to arXiv, add add the
+% [preprint] option:
+%     \usepackage[preprint]{neurips_2018}
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+     \usepackage[final]{neurips_2018}
+
+% to avoid loading the natbib package, add option nonatbib:
+%     \usepackage[nonatbib]{neurips_2018}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\title{Deep Learning\\Assignment 1: MLPs, CNNs and Backpropagation}
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to break the
+% lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
+% authors names on the first line, and the last on the second line, try using
+% \AND instead of \And before the third author name.
+
+\author{%
+  Daniel Daza\\
+  University of Amsterdam\\
+  \texttt{daniel.dazacruz@student.uva.nl} \\
+  % examples of more authors
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \AND
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+}
+
+\begin{document}
+% \nipsfinalcopy is no longer used
+
+\maketitle
+
+\begin{abstract}
+  The abstract paragraph should be indented \nicefrac{1}{2}~inch (3~picas) on
+  both the left- and right-hand margins. Use 10~point type, with a vertical
+  spacing (leading) of 11~points.  The word \textbf{Abstract} must be centered,
+  bold, and in point size 12. Two line spaces precede the abstract. The abstract
+  must be limited to one paragraph.
+\end{abstract}
+
+\section{Analytical derivation of gradients}
+
+\subsection*{Question 1.1 a)}
+
+\subsubsection*{Cross-entropy loss}
+
+Since the loss only depends on $x_i$ if $t_i = 1$, this gradient is a vector of zeros except in the position given by $\arg\max(t)$:
+
+\begin{align}
+\left(\frac{\partial L}{\partial x^{(N)}} \right)_i &=
+\left\lbrace
+\begin{matrix}
+0 &\text{ if } i \neq \arg\max(t)\\
+\frac{\partial}{\partial x_i^{(N)}}\left(-\log x_i^{(N)}\right) &\text{ if } i = \arg\max(t)\\
+\end{matrix}
+\right.\\
+&= \left\lbrace
+\begin{matrix}
+0 &\text{ if } i \neq \arg\max(t)\\
+-\frac{1}{x_i^{(N)}} &\text{ if } i = \arg\max(t)\\
+\end{matrix}
+\right.
+\end{align}
+
+
+Therefore, the gradient vector can be obtained by element-wise multiplication with the targets vector:
+\begin{equation}
+\frac{\partial L}{\partial x^{(N)}} = -t\odot\frac{1}{x^{(N)}}
+\end{equation}
+
+
+\subsubsection*{Softmax layer}
+
+
+\begin{align}
+\left(\frac{\partial x^{(N)}}{\tilde{x}^{(N)}}\right)_{ij}
+&= \frac{\partial x^{(N)}_i}{\tilde{x}^{(N)}_j}\\
+&=
+\frac{\partial}{\partial\tilde{x^{(N)}_j}}\left(
+\frac{\exp(\tilde{x}^{(N)})_i}{\sum_{k=1}^{d_N} \exp(\tilde{x}^{(N)})_k}
+\right)\\
+&=
+\frac{\partial}{\partial\tilde{x^{(N)}_j}}\left(
+\frac{\exp(\tilde{x}^{(N)})_i}{Z}
+\right)\\
+&=
+\frac{Z\frac{\partial}{\partial\tilde{x}_j}\exp(\tilde{x}^{(N)})_i-\exp(\tilde{x}^{(N)})_i\frac{\partial}{\partial\tilde{x}_j}Z}{Z^2}\\
+&=
+\frac{Z\frac{\partial}{\partial\tilde{x}_j}\exp(\tilde{x}^{(N)})_i-\exp(\tilde{x}^{(N)})_i\frac{\partial}{\partial\tilde{x}_j}\sum_{k=1}^{d_N} \exp(\tilde{x}^{(N)}_k)}{Z^2}\\
+&=
+\frac{Z\frac{\partial}{\partial\tilde{x}_j}\exp(\tilde{x}^{(N)})_i-\exp(\tilde{x}^{(N)})_i \exp(\tilde{x}^{(N)}_j)}{Z^2}\\
+&=
+\frac{\frac{\partial}{\partial\tilde{x}_j}\exp(\tilde{x}^{(N)})_i}{Z}-\frac{\exp(\tilde{x}^{(N)})_i \exp(\tilde{x}^{(N)}_j)}{Z^2}\\
+&=
+\frac{\frac{\partial}{\partial\tilde{x}_j}\exp(\tilde{x}^{(N)})_i}{Z}-\frac{\exp(\tilde{x}^{(N)})_i}{Z}\frac{\exp(\tilde{x}^{(N)}_j)}{Z}\\
+&=
+\frac{\frac{\partial}{\partial\tilde{x}_j}\exp(\tilde{x}^{(N)})_i}{Z}-\text{softmax}(\tilde{x}^{(N)})_i\text{softmax}(\tilde{x}^{(N)})_j\\
+&=
+\left\lbrace
+\begin{matrix}
+-\text{softmax}(\tilde{x}^{(N)})_i\text{softmax}(\tilde{x}^{(N)})_j \text{ if } i\neq j\\
+\frac{\exp(\tilde{x}^{(N)})_j}{Z}-\text{softmax}(\tilde{x}^{(N)})_i\text{softmax}(\tilde{x}^{(N)})_j\text{ if } i = j\\
+\end{matrix}
+\right. \\
+&=
+\left\lbrace
+\begin{matrix}
+-x^{(N)}_i x^{(N)}_j \text{ if } i\neq j\\
+x^{(N)}_j-x^{(N)}_i x^{(N)}_j\text{ if } i = j\\
+\end{matrix}
+\right. \\
+\end{align}
+
+
+The Jacobian is then:
+
+\begin{equation}
+\frac{\partial x^{(N)}}{\partial\tilde{x}^{(N)}} =
+\text{diag}(x^{(N)})-x^{(N)}{x^{(N)\top}}
+\end{equation}
+
+\subsubsection*{ReLU activation}
+
+\begin{align}
+\left(\frac{\partial x^{(l<N)}}{\partial\tilde{x}^{(l<N)}}\right)_{ij}
+&=
+\frac{\partial}{\partial\tilde{x}^{(l)}_j}\max(0,\tilde{x}^{(l)}_i)\\
+&=
+\left\lbrace
+\begin{matrix}
+1&\quad\text{if } i = j\text{ and } \tilde{x}^{(l)}<0\\
+0&\quad\text{otherwise} \\
+\end{matrix}
+\right.
+\end{align}
+
+If we let $\mathbb{I}[s]$  be an indicator variable equal to 1 when the element-wise statement $s$ is true, the Jacobian can be written as follows:
+\begin{equation}
+\frac{\partial x^{(l<N)}}{\partial\tilde{x}^{(l<N)}} = \text{diag}(\mathbb{I}[\tilde{x}^{(l)}>0])
+\end{equation}
+
+\subsubsection*{Linear layer}
+
+
+\begin{align}
+\frac{\partial\tilde{x}^{(l)}}{\partial x^{(l-1)}}
+&=
+\frac{\partial}{\partial x^{(l-1)}}(W^{(l)}x^{(l-1)}+b^{(l)})\\
+&= W^{(l)}
+\end{align}
+
+
+
+Let $W^{(l)}_{i:}$ be a slice containing the $i$-th row of $W^{(l)}$. Then we have:
+
+\begin{align}
+\left(\frac{\partial\tilde{x}^{(l)}}{\partial W^{(l)}}\right)_{ijk}
+&= \frac{\partial\tilde{x}^{(l)}_i}{\partial W^{(l)}_{jk}}\\
+&=
+\frac{\partial}{\partial W^{(l)}_{jk}}(W^{(l)}x^{(l-1)}+b^{(l)})_i \\
+&=
+\frac{\partial}{\partial W^{(l)}_{jk}}({W^{(l)}_{i:}}^\top x^{(l-1)}+b^{(l)}_i) \\
+&=
+\left\lbrace
+\begin{matrix}
+x^{(l-1)}_k\quad &\text{if } i = j\\
+0\quad &\text{otherwise}
+\end{matrix}
+\right.
+\end{align}
+
+Lastly,
+
+\begin{align}
+\left(\frac{\partial \tilde{x}^{(l)}}{\partial b^{(l)}}\right)_{ij}
+&=
+\frac{\partial}{\partial b^{(l)}_j}(W^{(l)}x^{(l-1)}+b^{(l)})_i \\
+&=
+\left\lbrace
+\begin{matrix}
+1\quad &\text{if } i = j\\
+0\quad &\text{otherwise}
+\end{matrix}
+\right.
+\end{align}
+
+\subsection*{Question 1.1 b)}
+
+\subsubsection*{Softmax backward}
+
+\begin{align}
+\frac{\partial L}{\partial\tilde{x}^{(N)}}
+&=
+\frac{\partial L}{\partial x^{(N)}}\frac{\partial x^{(N)}}{\partial \tilde{x}^{(N)}}\\
+&=
+\frac{\partial L}{\partial x^{(N)}}\left(\text{diag}(x^{(N)})-x^{(N)}{\tilde{x}^{(N)\top}}\right)
+\end{align}
+
+\subsubsection*{ReLU backward}
+
+\begin{align}
+\frac{\partial L}{\partial \tilde{x}^{(l<N)}} &= \frac{\partial L}{\partial x^{(l)}}\frac{\partial x^{(l)}}{\partial\tilde{x}^{(l)}}\\
+&= \frac{\partial L}{\partial x^{(l)}}\text{diag}(\mathbb{I}[\tilde{x}^{(l)}>0])
+\end{align}
+
+\subsubsection*{Linear backward}
+
+\begin{align*}
+\frac{\partial L}{\partial x^{(l<N)}} &= \frac{\partial L}{\partial\tilde{x}^{(l+1)}}\frac{\partial\tilde{x}^{(l+1)}}{\partial x^{(l)}} \\
+&= \frac{\partial L}{\partial\tilde{x}^{(l+1)}}W^{(l+1)}
+\end{align*}
+
+From the chain rule we have:
+\begin{align}
+\left(\frac{\partial L}{\partial W^{(l)}}\right)_{ij} &= \sum_k\frac{\partial L}{\partial \tilde{x}^{(l)}_k}\frac{\partial \tilde{x}^{(l)}_k}{\partial W_{ij}}\\
+&= \frac{\partial L}{\partial \tilde{x}^{(l)}_i}x^{(l-1)}_j
+\end{align}
+
+Therefore, the gradient with respect to $W^{(l)}$ can be written as an outer product:
+\begin{align}
+\frac{\partial L}{\partial W^{(l)}} &= \frac{\partial L}{\partial\tilde{x}^{(l)}}x^{(l-1)\top}
+\end{align}
+
+\begin{align}
+\left(\frac{\partial L}{\partial b^{(l)}}\right)_i &= \sum_j \frac{\partial L}{\partial\tilde{x}^{(l)}_j} \frac{\partial\tilde{x}^{(l)}_j}{\partial b^{(l)}_i}\\
+&=
+\frac{\partial L}{\partial\tilde{x}^{(l)}_i}
+\end{align}
+
+Therefore:
+\begin{equation}
+\frac{\partial L}{\partial b^{(l)}} = \frac{\partial L}{\partial\tilde{x}^{(l)}}
+\end{equation}
+
+\subsection*{Question 1.1 c)}
+
+Let us assume that when using batches, the $B$ samples and targets are arranged in the columns of matrices $X^{(0)}$ and $T$, and for any linear module the output is calculated as $W^{(l)}X^{(l-1)} + b^{(l)}$. In this case, the output of the module will be a matrix as well.
+
+When using a single sample, we obtained the following gradient for the cross-entropy loss:
+
+\begin{equation*}
+\frac{\partial L}{\partial x^{(N)}} = -t\odot\frac{1}{x^{(N)}}
+\end{equation*}
+
+This is a vector that is then used during backpropagation to calculate the next gradients. In the new batched formulation, this turns into is a matrix that we can arrange so that the number of rows equals the number of samples in the batch:
+
+\begin{equation}
+-T\odot \frac{1}{X^{(N)}} = 
+\begin{bmatrix}
+-T_{1:}\odot\frac{1}{X^{(N)}_{1:}}\\
+-T_{2:}\odot\frac{1}{X^{(N)}_{2:}}\\
+\vdots\\
+-T_{B:}\odot\frac{1}{X^{(N)}_{B:}}
+\end{bmatrix}
+\end{equation}
+
+By matrix multiplication, every backward step of a module will then produce a matrix with one row per sample. When calculating the gradients of the parameters, each sample in the batch will produce a gradient matrix for $W^{(l)}$ and a gradient vector for $b^{(l)}$ via brodcasting of matrix multiplication. These gradient arrays can be averaged across the batch axis before updating the parameters.
+
+\end{document}
