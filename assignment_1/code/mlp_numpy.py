@@ -32,11 +32,17 @@ class MLP(object):
     TODO:
     Implement initialization of the network.
     """
-
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    dims = [n_inputs] + n_hidden
+    self.layers = []
+    for i in range(len(n_hidden)):
+      self.layers.append(LinearModule(in_features=dims[i], out_features=dims[i+1]))
+      self.layers.append(ReLUModule())
+
+    self.layers.append(LinearModule(in_features=dims[-1], out_features=n_classes))
+    self.layers.append(SoftMaxModule())
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -58,7 +64,9 @@ class MLP(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    out = x
+    for layer in self.layers:
+      out = layer.forward(out)
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -79,9 +87,13 @@ class MLP(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    for layer in reversed(self.layers):
+      dout = layer.backward(dout)
     ########################
     # END OF YOUR CODE    #
     #######################
 
     return
+
+  def __repr__(self):
+    return self.layers.__repr__()

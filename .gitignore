@@ -128,4 +128,6 @@ dmypy.json
 *.aux
 *.out
 *.synctex.gz
-*.pdf
+*report*.pdf
+
+cifar-10-batches-py/

@@ -18,8 +18,7 @@ class LinearModule(object):
       in_features: size of each input sample
       out_features: size of each output sample
 
-    TODO:
-    Initialize weights self.params['weight'] using normal distribution with mean = 0 and 
+    Initialize weights self.params['weight'] using normal distribution with mean = 0 and
     std = 0.0001. Initialize biases self.params['bias'] with 0. 
     
     Also, initialize gradients with zeros.
@@ -28,6 +27,8 @@ class LinearModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
+    self.in_features = in_features
+    self.out_features = out_features
     self.params = {'weight': np.random.normal(scale=0.0001, size=[out_features, in_features]),
                    'bias': np.zeros(out_features)}
     self.grads = {param: np.zeros_like(self.params[param]) for param in self.params}
@@ -44,8 +45,7 @@ class LinearModule(object):
     Returns:
       out: output of the module
     
-    TODO:
-    Implement forward pass of the module. 
+    Implement forward pass of the module.
     
     Hint: You can store intermediate variables inside the object. They can be used in backward pass computation.                                                           #
     """
@@ -70,8 +70,7 @@ class LinearModule(object):
     Returns:
       dx: gradients with respect to the input of the module
     
-    TODO:
-    Implement backward pass of the module. Store gradient of the loss with respect to 
+    Implement backward pass of the module. Store gradient of the loss with respect to
     layer parameters in self.grads['weight'] and self.grads['bias']. 
     """
 
@@ -87,6 +86,10 @@ class LinearModule(object):
     
     return dx
 
+  def __repr__(self):
+    return '({}): in_features={}, out_features={}'.format(
+      self.__class__.__name__, self.in_features, self.out_features)
+
 class ReLUModule(object):
   """
   ReLU activation module.
@@ -100,8 +103,7 @@ class ReLUModule(object):
     Returns:
       out: output of the module
     
-    TODO:
-    Implement forward pass of the module. 
+    Implement forward pass of the module.
     
     Hint: You can store intermediate variables inside the object. They can be used in backward pass computation.                                                           #
     """
@@ -126,7 +128,6 @@ class ReLUModule(object):
     Returns:
       dx: gradients with respect to the input of the module
     
-    TODO:
     Implement backward pass of the module.
     """
 
@@ -141,6 +142,9 @@ class ReLUModule(object):
 
     return dx
 
+  def __repr__(self):
+    return '({})'.format(self.__class__.__name__)
+
 class SoftMaxModule(object):
   """
   Softmax activation module.
@@ -153,8 +157,7 @@ class SoftMaxModule(object):
     Returns:
       out: output of the module
     
-    TODO:
-    Implement forward pass of the module. 
+    Implement forward pass of the module.
     To stabilize computation you should use the so-called Max Trick - https://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick/
     
     Hint: You can store intermediate variables inside the object. They can be used in backward pass computation.                                                           #
@@ -182,7 +185,6 @@ class SoftMaxModule(object):
     Returns:
       dx: gradients with respect to the input of the module
     
-    TODO:
     Implement backward pass of the module.
     """
 
@@ -198,6 +200,9 @@ class SoftMaxModule(object):
 
     return dx
 
+  def __repr__(self):
+    return '({})'.format(self.__class__.__name__)
+
 class CrossEntropyModule(object):
   """
   Cross entropy loss module.
@@ -212,7 +217,6 @@ class CrossEntropyModule(object):
     Returns:
       out: cross entropy loss
 
-    TODO:
     Implement forward pass of the module.
     """
 
@@ -236,7 +240,6 @@ class CrossEntropyModule(object):
     Returns:
       dx: gradient of the loss with the respect to the input x.
 
-    TODO:
     Implement backward pass of the module.
     """
 
