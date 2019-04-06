@@ -4,6 +4,8 @@ You should fill in code into indicated sections.
 """
 import numpy as np
 
+EPS = 1e-9
+
 class LinearModule(object):
   """
   Linear module. Applies a linear transformation to the input data. 
@@ -26,9 +28,9 @@ class LinearModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    self.params = {'weight': None, 'bias': None}
-    self.grads = {'weight': None, 'bias': None}
-    raise NotImplementedError
+    self.params = {'weight': np.random.normal(scale=0.0001, size=[out_features, in_features]),
+                   'bias': np.zeros(out_features)}
+    self.grads = {param: np.zeros_like(self.params[param]) for param in self.params}
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -51,7 +53,8 @@ class LinearModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    out = np.matmul(x, self.params['weight'].T) + self.params['bias']
+    self.cache = x
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -75,7 +78,9 @@ class LinearModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    self.grads['weight'] = np.matmul(dout.T, self.cache)
+    self.grads['bias'] = dout.sum(axis=0)
+    dx = np.matmul(dout, self.params['weight'])
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -104,7 +109,8 @@ class ReLUModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    out = np.maximum(x, 0.0)
+    self.cache = out
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -116,7 +122,7 @@ class ReLUModule(object):
     Backward pass.
 
     Args:
-      dout: gradients of the previous modul
+      dout: gradients of the previous module
     Returns:
       dx: gradients with respect to the input of the module
     
@@ -127,7 +133,8 @@ class ReLUModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    indicator = np.where(self.cache > 0, 1.0, 0.0)
+    dx = dout * indicator
     ########################
     # END OF YOUR CODE    #
     #######################    
@@ -156,7 +163,10 @@ class SoftMaxModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    b = x.max(axis=1, keepdims=True)
+    y = np.exp(x - b)
+    out = y / y.sum(axis=1, keepdims=True)
+    self.cache = out
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -179,7 +189,9 @@ class SoftMaxModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    batch_outer = np.einsum('bi,bo->bio', self.cache, self.cache)
+    dout_outer = np.matmul(np.expand_dims(dout, axis=1), batch_outer)
+    dx = dout * self.cache - dout_outer.squeeze()
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -199,15 +211,15 @@ class CrossEntropyModule(object):
       y: labels of the input
     Returns:
       out: cross entropy loss
-    
+
     TODO:
-    Implement forward pass of the module. 
+    Implement forward pass of the module.
     """
 
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    out = -np.log(x[y.astype(np.bool)] + EPS).mean()
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -223,7 +235,7 @@ class CrossEntropyModule(object):
       y: labels of the input
     Returns:
       dx: gradient of the loss with the respect to the input x.
-    
+
     TODO:
     Implement backward pass of the module.
     """
@@ -231,7 +243,8 @@ class CrossEntropyModule(object):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    dx = -y * 1/(x + EPS)
+    np.divide(dx, x.shape[0], out=dx)
     ########################
     # END OF YOUR CODE    #
     #######################
