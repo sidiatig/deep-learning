@@ -29,7 +29,6 @@ class MLP(object):
                  This number is required in order to specify the
                  output dimensions of the MLP
     
-    TODO:
     Implement initialization of the network.
     """
     ########################
@@ -57,7 +56,6 @@ class MLP(object):
     Returns:
       out: outputs of the network
     
-    TODO:
     Implement forward pass of the network.
     """
 
@@ -80,7 +78,6 @@ class MLP(object):
     Args:
       dout: gradients of the loss
     
-    TODO:
     Implement backward pass of the network.
     """
     
