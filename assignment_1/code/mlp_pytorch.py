@@ -6,6 +6,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import torch.nn as nn
+
 class MLP(nn.Module):
   """
   This class implements a Multi-layer Perceptron in PyTorch.
@@ -27,14 +29,21 @@ class MLP(nn.Module):
                  This number is required in order to specify the
                  output dimensions of the MLP
     
-    TODO:
     Implement initialization of the network.
     """
 
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    super(MLP, self).__init__()
+    dims = [n_inputs] + n_hidden
+    layers = []
+    for i in range(len(n_hidden)):
+      layers.append(nn.Linear(in_features=dims[i], out_features=dims[i + 1]))
+      layers.append(nn.ReLU())
+
+    layers.append(nn.Linear(in_features=dims[-1], out_features=n_classes))
+    self.layers = nn.Sequential(*layers)
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -56,7 +65,7 @@ class MLP(nn.Module):
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    out = self.layers(x)
     ########################
     # END OF YOUR CODE    #
     #######################

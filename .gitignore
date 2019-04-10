@@ -128,6 +128,10 @@ dmypy.json
 *.aux
 *.out
 *.synctex.gz
+*.bbl
+*.blg
+*.log
 *report*.pdf
 
+# Data folders
 cifar-10-batches-py/
