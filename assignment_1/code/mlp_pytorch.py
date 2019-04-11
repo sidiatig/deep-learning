@@ -61,7 +61,6 @@ class MLP(nn.Module):
     Returns:
       out: outputs of the network
     
-    TODO:
     Implement forward pass of the network.
     """
 
