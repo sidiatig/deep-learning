@@ -28,16 +28,17 @@ class CustomBatchNormAutograd(nn.Module):
       n_neurons: int specifying the number of neurons
       eps: small float to be added to the variance for stability
     
-    TODO:
-      Save parameters for the number of neurons and eps.
-      Initialize parameters gamma and beta via nn.Parameter
     """
     super(CustomBatchNormAutograd, self).__init__()
 
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    self.n_neurons = n_neurons
+    self.gamma = nn.Parameter(torch.Tensor(n_neurons))
+    self.beta = nn.Parameter(torch.Tensor(n_neurons))
+    nn.init.ones_(self.gamma)
+    nn.init.zeros_(self.beta)
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -51,16 +52,21 @@ class CustomBatchNormAutograd(nn.Module):
     Returns:
       out: batch-normalized tensor
     
-    TODO:
-      Check for the correctness of the shape of the input tensor.
-      Implement batch normalization forward pass as given in the assignment.
-      For the case that you make use of torch.var be aware that the flag unbiased=False should be set.
     """
 
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    if input.dim() != 2:
+      raise ValueError('Expected 2D tensor but got {:d}D'.format(input.dim()))
+    if input.shape[1] != self.n_neurons:
+      msg = 'Number of neurons do not match, expected {:d}, got {:d}'
+      raise ValueError(msg.format(self.n_neurons, input.shape[1]))
+
+    mean = input.mean(dim=0)
+    var = torch.mean((input - mean)**2, dim=0)
+    normalized = (input - mean)/torch.sqrt(var + 1e-9)
+    out = self.gamma * normalized + self.beta
     ########################
     # END OF YOUR CODE    #
     #######################
