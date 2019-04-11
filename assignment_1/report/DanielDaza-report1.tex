@@ -27,6 +27,9 @@
 \usepackage{microtype}      % microtypography
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs}
 
 \title{Deep Learning\\Assignment 1: MLPs, CNNs and Backpropagation}
 
@@ -78,7 +81,9 @@
   must be limited to one paragraph.
 \end{abstract}
 
-\section{Analytical derivation of gradients}
+\section{MLP, backpropagation and NumPy implementation}
+
+\subsection{Analytical derivation of gradients}
 
 \subsection*{Question 1.1 a)}
 
@@ -233,14 +238,15 @@ Lastly,
 &=
 \frac{\partial L}{\partial x^{(N)}}\frac{\partial x^{(N)}}{\partial \tilde{x}^{(N)}}\\
 &=
-\frac{\partial L}{\partial x^{(N)}}\left(\text{diag}(x^{(N)})-x^{(N)}{\tilde{x}^{(N)\top}}\right)
+\frac{\partial L}{\partial x^{(N)}}\left(\text{diag}(x^{(N)})-x^{(N)}{x^{(N)\top}}\right)
 \end{align}
 
 \subsubsection*{ReLU backward}
 
 \begin{align}
 \frac{\partial L}{\partial \tilde{x}^{(l<N)}} &= \frac{\partial L}{\partial x^{(l)}}\frac{\partial x^{(l)}}{\partial\tilde{x}^{(l)}}\\
-&= \frac{\partial L}{\partial x^{(l)}}\text{diag}(\mathbb{I}[\tilde{x}^{(l)}>0])
+&= \frac{\partial L}{\partial x^{(l)}}\text{diag}(\mathbb{I}[\tilde{x}^{(l)}>0])\\
+&= \frac{\partial L}{\partial x^{(l)}}\odot\mathbb{I}[\tilde{x}^{(l)}>0]
 \end{align}
 
 \subsubsection*{Linear backward}
@@ -274,7 +280,7 @@ Therefore:
 
 \subsection*{Question 1.1 c)}
 
-Let us assume that when using batches, the $B$ samples and targets are arranged in the columns of matrices $X^{(0)}$ and $T$, and for any linear module the output is calculated as $W^{(l)}X^{(l-1)} + b^{(l)}$. In this case, the output of the module will be a matrix as well.
+Let us assume that when using batches, the $B$ samples and targets are arranged in the rows of matrices $X^{(0)}$ and $T$, and for any linear module the output is calculated as $X^{(l-1)}W^{(l)\top} + b^{(l)}$. In this case, the output of the module will be a matrix as well.
 
 When using a single sample, we obtained the following gradient for the cross-entropy loss:
 
@@ -282,7 +288,7 @@ When using a single sample, we obtained the following gradient for the cross-ent
 \frac{\partial L}{\partial x^{(N)}} = -t\odot\frac{1}{x^{(N)}}
 \end{equation*}
 
-This is a vector that is then used during backpropagation to calculate the next gradients. In the new batched formulation, this turns into is a matrix that we can arrange so that the number of rows equals the number of samples in the batch:
+This vector is used during backpropagation to calculate the next gradients. In the new batched formulation, it turns into is a matrix that we can arrange so that the number of rows equals the number of samples in the batch:
 
 \begin{equation}
 -T\odot \frac{1}{X^{(N)}} = 
@@ -295,5 +301,72 @@ This is a vector that is then used during backpropagation to calculate the next 
 \end{equation}
 
 By matrix multiplication, every backward step of a module will then produce a matrix with one row per sample. When calculating the gradients of the parameters, each sample in the batch will produce a gradient matrix for $W^{(l)}$ and a gradient vector for $b^{(l)}$ via brodcasting of matrix multiplication. These gradient arrays can be averaged across the batch axis before updating the parameters.
+
+\subsection*{Question 1.2: NumPy implementation}
+\label{sec:numpy}
+
+The previous equations were used to implement an MLP with the NumPy library to solve an image classification problem with the CIFAR-10 dataset \cite{krizhevsky2009learning}, with a training set of 50,000 images and 10,000 images for testing. We trained a 2-layer MLP with 100 units in the hidden layer and the ReLU activation function, a batch size of 200, Stochastic Gradient Descent (SGD) with a learning rate of 1$\times$10$^{-3}$, for 1,500 steps. To evaluate the performance of the classifier we use the accuracy score.
+
+We obtained an accuracy of 46.6\% in the test set. During training, we observed that the test set obtained a value of 48.8\% after 1,000 iterations, and later decreased, which indicates a sign of overfitting. This can also be seen in the loss and accuracy curves, shown in Figure \ref{fig:mlp_curves}, where a gap between the training and test curves starts to appear towards the end of training. We can also see that at 1,500 iterations the curves appear to stagnate, suggesting that training for more iterations would further decrease the performance on the test set due to overfitting.
+
+\begin{figure}[t]
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.22]{img/mlp-loss}
+\caption{}
+\end{subfigure}
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.22]{img/mlp-acc}
+\caption{}
+\end{subfigure}
+ \caption{Curves for (a) the loss, and (b) accuracy on the training and test splits, when training an MLP for image classification with NumPy. Training values are averaged over 10 steps, and test values are measured every 100 steps.}
+\label{fig:mlp_curves}
+\end{figure}
+
+\section{PyTorch MLP}
+
+We implemented the same MLP using the PyTorch library, and obtained an accuracy of 43.7\% with the same hyperparameters as the NumPy implementation. We attribute the difference to the initialization strategy, as in the NumPy implementation we initialize the weights from a Gaussian distribution with a mean of 0 and a standard deviation of 0.0001, whereas by default PyTorch uses the \textit{He initialization} strategy \cite{he2015delving}.
+
+In order to improve the performance of the model, we experiment with modifications to the architecture and training procedure. Increasing the number of parameters allows the model to represent more complex functions \cite{hornik1991approximation}, and arranging these into different layers imposes a hierarchical inductive bias that has shown to improve the generalization properties of neural networks \cite{bengio2007greedy,bengio2013representation}. However, the increased complexity of the model also increases its propensity to overfitting to the training data, and methods like regularizing the $\ell_2$-norm of the weights, and dropout \cite{srivastava2014dropout} have been proposed to overcome this outcome.
+
+Another important component in training neural networks is the optimization algorithm used to minimize the loss. While our first experiments use SGD, other alternatives have been proposed that improve the convergence speed, such as the use of momentum  \cite{polyak1964momentum,sutskever2013nesterov} and second order moment estimation, as used in the Adam algorithm \citep{krizhevsky2009learning}.
+
+Based on the previous reasons, we experiment with a model with three layers. We vary the number of units in the first layer, and we fix the second layer with 400 units. We add dropout to the output of the second layer, and we train the neural network with Adam, including weight decay regularization. We train for 4,000 iterations, which we observed was necessary to achieve a stable convergence of the training loss. To find the best set of hyperparameters, we run grid search according to the values listed in Table \ref{tab:hparams}.
+
+\begin{table}[t]
+\centering
+\caption{Hyperparameter settings for the grid search carried out for the PyTorch implementation of the MLP. The best values are shown for the model with the highest accuracy on the test set.}
+\label{tab:hparams}
+\begin{tabular}{lll}
+\bf Hyperparameter & \bf Values  & \bf Best\\
+\specialrule{.1em}{.05em}{.05em}
+Units in the first layer & $\lbrace 400, 600, 1000\rbrace $ & $600$ \\
+Weight decay & $\lbrace 0.1, 0.01, 0.001\rbrace$ & $0.1$ \\
+Dropout & $\lbrace 0.1, 0.2, 0.5\rbrace$ & $0.1$ \\
+Learning rate & $\lbrace 1\times 10^{-3}, 5\times 10^{-4}, 1\times 10^{-4}\rbrace$ & $1\times 10^{-4}$
+\end{tabular}
+\end{table}
+
+Table \ref{tab:hparams} also includes the best set of hyperparameters, which yielded an accuracy of 54.2\% in the test set. We note that the best model is not the one with more parameters, but a model in the mid range that is also regularized both with weight decay and dropout. The loss and accuracy curves for this model are shown in Figure \ref{fig:torch_curves}. We can see that the regularization methods effectively prevent the model from overfitting, as the gap between the training and test curves is controlled as the number of iteration increases. The accuracy curves also suggest that training for more iterations could further improve the performance on the test set.
+
+\begin{figure}[t]
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.22]{img/torchmlp-loss}
+\caption{}
+\end{subfigure}
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.22]{img/torchmlp-acc}
+\caption{}
+\end{subfigure}
+ \caption{Curves for (a) the loss, and (b) accuracy on the training and test splits, when training an MLP for image classification with PyTorch. Training values are averaged over 10 steps, and test values are measured every 100 steps.}
+\label{fig:torch_curves}
+\end{figure}
+
+\bibliographystyle{unsrt}
+\bibliography{refs}
+
 
 \end{document}

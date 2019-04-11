@@ -18,6 +18,7 @@ import torch.optim as optim
 
 from sacred import Experiment
 from sacred.observers import MongoObserver
+from sklearn.model_selection import ParameterGrid
 
 ex = Experiment()
 # Set up database logs
@@ -29,7 +30,7 @@ if all([uri, database]):
 # Default constants
 DNN_HIDDEN_UNITS_DEFAULT = '100'
 LEARNING_RATE_DEFAULT = 2e-3
-MAX_STEPS_DEFAULT = 3000
+MAX_STEPS_DEFAULT = 4000
 BATCH_SIZE_DEFAULT = 200
 EVAL_FREQ_DEFAULT = 100
 
@@ -52,7 +53,6 @@ def accuracy(predictions, targets):
     accuracy: scalar float, the accuracy of predictions,
               i.e. the average correct predictions over the whole batch
   
-  TODO:
   Implement accuracy computation.
   """
 
@@ -68,8 +68,15 @@ def accuracy(predictions, targets):
 
   return accuracy
 
+@ex.config
+def config():
+  n_hidden_1 = 500
+  dropout = 0.2
+  lr = 1e-4
+  wdecay = 1e-2
+
 @ex.main
-def train(_run):
+def train(n_hidden_1, dropout, lr, wdecay, _run):
   """
   Performs training and evaluation of MLP model. 
 
@@ -101,11 +108,11 @@ def train(_run):
   datasets = cifar10_utils.read_data_sets(DATA_DIR_DEFAULT, one_hot=False)
   train_data = datasets['train']
   test_data = datasets['test']
-  model = MLP(n_inputs=3072, n_hidden=dnn_hidden_units, n_classes=10).to(device)
+  model = MLP(n_inputs=3072, n_hidden=[n_hidden_1, 400], n_classes=10, dropout=dropout).to(device)
   loss_fn = nn.CrossEntropyLoss()
-  optimizer = optim.SGD(model.parameters(), lr=FLAGS.learning_rate)
+  optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=wdecay)
 
-  log_every = 10
+  log_every = 50
   avg_loss = 0
   avg_acc = 0
   for step in range(FLAGS.max_steps):
@@ -123,9 +130,9 @@ def train(_run):
     avg_loss += loss.item() / log_every
     avg_acc += accuracy(out, y) / log_every
     if step % log_every == 0:
-      print('\r[{}/{}] train loss: {:.6f}  train acc: {:.6f}'.format(step + 1,
+      print('[{}/{}] train loss: {:.6f}  train acc: {:.6f}'.format(step,
                                                                      FLAGS.max_steps,
-                                                                     avg_loss, avg_acc), end='')
+                                                                     avg_loss, avg_acc))
       _run.log_scalar('train-loss', avg_loss, step)
       _run.log_scalar('train-acc', avg_acc, step)
       avg_loss = 0
@@ -134,10 +141,12 @@ def train(_run):
     # Evaluate
     if step % FLAGS.eval_freq == 0 or step == (FLAGS.max_steps - 1):
       x, y = get_xy_tensors(test_data.next_batch(test_data.num_examples))
+      model.eval()
       out = model.forward(x)
+      model.train()
       test_loss = loss_fn(out, y).item()
       test_acc = accuracy(out, y)
-      print(' test accuracy: {:6f}'.format(test_acc))
+      print('[{}/{}]  test accuracy: {:6f}'.format(step, FLAGS.max_steps, test_acc))
 
       _run.log_scalar('test-loss', test_loss, step)
       _run.log_scalar('test-acc', test_acc, step)
@@ -164,7 +173,15 @@ def main():
 
   # Run the training operation
   #train()
-  ex.run()
+  grid_values = {'dropout': [0.1, 0.2, 0.5],
+                 'lr': [1e-3, 5e-4, 1e-4],
+                 'wdecay': [1e-1, 1e-2, 1e-3],
+                 'n_hidden_1': [400, 600, 1000]}
+  grid = ParameterGrid(grid_values)
+  for i, hparams in enumerate(grid):
+   print('Experiment configuration {:d}/{:d}'.format(i + 1, len(grid)))
+   print(hparams)
+   ex.run(config_updates=hparams)
 
 if __name__ == '__main__':
   # Command line arguments

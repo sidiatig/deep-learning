@@ -15,7 +15,7 @@ class MLP(nn.Module):
   Once initialized an MLP object can perform forward.
   """
 
-  def __init__(self, n_inputs, n_hidden, n_classes):
+  def __init__(self, n_inputs, n_hidden, n_classes, dropout=0):
     """
     Initializes MLP object. 
     
@@ -42,7 +42,10 @@ class MLP(nn.Module):
       layers.append(nn.Linear(in_features=dims[i], out_features=dims[i + 1]))
       layers.append(nn.ReLU())
 
+    if dropout > 0:
+      layers.append(nn.Dropout(dropout))
     layers.append(nn.Linear(in_features=dims[-1], out_features=n_classes))
+
     self.layers = nn.Sequential(*layers)
     ########################
     # END OF YOUR CODE    #
