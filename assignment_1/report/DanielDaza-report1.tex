@@ -30,6 +30,7 @@
 \usepackage{graphicx}
 \usepackage{subcaption}
 \usepackage{booktabs}
+\newcommand{\pd}[2]{\frac{\partial #1}{\partial #2}}
 
 \title{Deep Learning\\Assignment 1: MLPs, CNNs and Backpropagation}
 
@@ -326,6 +327,7 @@ We obtained an accuracy of 46.6\% in the test set. During training, we observed 
 
 \section{PyTorch MLP}
 
+\subsection*{Question 2}
 We implemented the same MLP using the PyTorch library, and obtained an accuracy of 43.7\% with the same hyperparameters as the NumPy implementation. We attribute the difference to the initialization strategy, as in the NumPy implementation we initialize the weights from a Gaussian distribution with a mean of 0 and a standard deviation of 0.0001, whereas by default PyTorch uses the \textit{He initialization} strategy \cite{he2015delving}.
 
 In order to improve the performance of the model, we experiment with modifications to the architecture and training procedure. Increasing the number of parameters allows the model to represent more complex functions \cite{hornik1991approximation}, and arranging these into different layers imposes a hierarchical inductive bias that has shown to improve the generalization properties of neural networks \cite{bengio2007greedy,bengio2013representation}. However, the increased complexity of the model also increases its propensity to overfitting to the training data, and methods like regularizing the $\ell_2$-norm of the weights, and dropout \cite{srivastava2014dropout} have been proposed to overcome this outcome.
@@ -364,6 +366,113 @@ Table \ref{tab:hparams} also includes the best set of hyperparameters, which yie
  \caption{Curves for (a) the loss, and (b) accuracy on the training and test splits, when training an MLP for image classification with PyTorch. Training values are averaged over 10 steps, and test values are measured every 100 steps.}
 \label{fig:torch_curves}
 \end{figure}
+
+\section{Batch Normalization}
+
+We reproduce the forward propagation equations for the batch normalization layer here for future reference:
+
+\begin{align}
+\mu_i &= \frac{1}{B}\sum_{s=1}^B x_i^s \\
+\sigma_i &= \frac{1}{B}\sum_{s=1}^B (x_i^s - \mu_i)^2 \\
+\hat{x}_i^s &= \frac{x_i^s -  \mu_i}{\sqrt{\sigma_i^2 + \epsilon}} \\
+y_i^s &= \gamma_i\hat{x}_i^s + \beta_i
+\end{align}
+
+\subsection*{Question 3.1}
+
+For this question, the forward propagation equations were implemented in PyTorch.
+
+\subsection*{Question 3.2 a)}
+
+We now derive the backpropagation equations for the batch normalization layer. We are interested in the gradients of the loss with respect to $\gamma$, $\beta$, and $x$. We assume that the gradient with respect to the module output, $y$, is already provided by the layer following it.
+
+\begin{align*}
+\left(\pd{L}{\gamma}\right)_j &= \pd{L}{\gamma_j} \\
+&=
+\sum_s\sum_i\pd{L}{y_i^s}\pd{y_i^s}{\gamma_j} \\
+&=
+\sum_s\pd{L}{y_j^s}\pd{y_j^s}{\gamma_j} \\
+&= \sum_s\pd{L}{y_j^s}\pd{}{\gamma_j}(\gamma_j\hat{x}_j^s+\beta_j) \\
+&= \sum_s\pd{L}{y_j^s}\hat{x}_j^s
+\end{align*}
+
+\begin{align*}
+\left(\pd{L}{\beta}\right)_j &= \pd{L}{\beta_j} \\
+&=
+\sum_s\sum_i\pd{L}{y_i^s}\pd{y_i^s}{\beta_j} \\
+&=
+\sum_s\pd{L}{y_j^s}\pd{y_j^s}{\beta_j} \\
+&= \sum_s\pd{L}{y_j^s}\pd{}{\beta_j}(\gamma_j\hat{x}_j^s+\beta_j) \\
+&= \sum_s\pd{L}{y_j^s}
+\end{align*}
+
+\begin{align}
+\left(\pd{L}{x}\right)_{jk} &= \pd{L}{x_j^k} \notag \\
+&= \pd{L}{y_j^k}\pd{y_j^k}{\hat{x}_j^k}\pd{\hat{x}_j^k}{x_j^k} + \sum_s \pd{L}{y_j^s}\pd{y_j^s}{\hat{x}_j^s}\left(\pd{\hat{x}_j^s}{\mu_j}\pd{\mu_j}{x_j^k} + \pd{\hat{x}_j^s}{\sigma_j^2}\left[\pd{\sigma_j^2}{x_j^k} + \pd{\sigma_j^2}{\mu_j}\pd{\mu_j}{x_j^k} \right] \right) \label{eq:dldx}
+\end{align}
+
+\begin{align*}
+\pd{y_j^k}{\hat{x}_j^k} &= \pd{}{\hat{x}_j^k}(\gamma_j\hat{x}_j^k + \beta_j) \\
+&= \gamma_j
+\end{align*}
+
+\begin{align*}
+\pd{\hat{x}_j^k}{x_j^k} &= \pd{}{x_j^k}\left(\frac{x_j^k - \mu_j}{\sqrt{\sigma_j^2+\epsilon}}\right) \\
+&=
+\frac{1}{\sqrt{\sigma_j^2 + \epsilon}}
+\end{align*}
+
+\begin{align*}
+\pd{\hat{x}_j^s}{\mu_j} &= \pd{}{\mu_j}\left(\frac{x_j^s - \mu_j}{\sqrt{\sigma_j^2+\epsilon}}\right)\\
+&=
+-\frac{1}{\sqrt{\sigma_j^2 + \epsilon}}
+\end{align*}
+
+\begin{align*}
+\pd{\mu_j}{x_j^k} &= \pd{}{x_j^k}\frac{1}{B}\sum_s x_j^s \\
+&= \frac{1}{B}
+\end{align*}
+
+\begin{align*}
+\pd{\hat{x}_j^s}{\sigma_j^2} &=
+\pd{}{\sigma_j^2}\left(\frac{x_j^s - \mu_j}{\sqrt{\sigma_j^2+\epsilon}}\right) \\
+&=
+-\frac{1}{2}(\sigma_j^2 + \epsilon)^{-3/2}(x_j^s - \mu_j)
+\end{align*}
+
+\begin{align*}
+\pd{\sigma_j^2}{x_j^k} &= \pd{}{x_j^k}\frac{1}{B}\sum_s (x_j^s - \mu_j)^2\\
+&=
+\frac{2}{B}(x_j^k - \mu_j)
+\end{align*}
+
+\begin{align*}
+\pd{\sigma^2_j}{\mu_j} &= \pd{}{\mu_j}\frac{1}{B}\sum_s (x_j^s - \mu_j)^2\\
+&=
+-\frac{2}{B}\sum_s(x_j^s - \mu_j) \\
+&=
+-\frac{2}{B}\sum_s x_s^j + \frac{2}{B}\sum_s \mu_j \\
+&=
+-2\mu_j + 2\mu_j \\
+&= 0
+\end{align*}
+
+Since this last derivative is 0, we do not need to calculate $\partial\mu_j/\partial x_j^k$. Substituting the rest of the expressions in Eq. \ref{eq:dldx}, we obtain
+
+\begin{align*}
+\pd{L}{x_j^k} &= \pd{L}{y_j^k}\frac{\gamma_j}{\sqrt{\sigma_j^2 + \epsilon}} -\frac{\gamma_j}{B\sqrt{\sigma_j^2 + \epsilon}}\sum_s \pd{L}{y_j^s}\left(1 + \frac{(x_j^s - \mu_j)}{\sqrt{\sigma_j^2 + \epsilon}}\frac{(x_j^k - \mu_j)}{\sqrt{\sigma_j^2 + \epsilon}}  \right) \\
+&=
+\frac{\gamma_j}{\sqrt{\sigma_j^2 + \epsilon}}\left(\pd{L}{y_j^k} - \frac{1}{B}\sum_s \pd{L}{y_j^s} (1 + \hat{x}_j^s \hat{x}_j^k) \right) \\
+&=
+\frac{\gamma_j}{\sqrt{\sigma_j^2 + \epsilon}}\left(\pd{L}{y_j^k} - \frac{1}{B}\sum_s \pd{L}{y_j^s} - \frac{1}{B}\hat{x}_j^k\sum_s \pd{L}{y_j^s}\hat{x}_j^s \right) \\
+&=
+\frac{\gamma_j}{B\sqrt{\sigma_j^2 + \epsilon}}\left(B\pd{L}{y_j^k} - \pd{L}{\beta_j} - \hat{x}_j^k \pd{L}{\gamma_j} \right)
+\end{align*}
+
+where in the last step we have substituted $\partial L/\partial\beta_j$ and $\partial L/\partial\gamma_j$, which can be computed first to be reused in the calculation of $\partial L/\partial x_j^k$.
+
+\subsection*{Question 3.2 b)}
+
 
 \bibliographystyle{unsrt}
 \bibliography{refs}
