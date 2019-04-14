@@ -102,25 +102,22 @@ class CustomBatchNormManualFunction(torch.autograd.Function):
       ctx: context object handling storing and retrival of tensors and constants and specifying
            whether tensors need gradients in backward pass
       input: input tensor of shape (n_batch, n_neurons)
-      gamma: variance scaling tensor, applied per neuron, shpae (n_neurons)
-      beta: mean bias tensor, applied per neuron, shpae (n_neurons)
+      gamma: variance scaling tensor, applied per neuron, shape (n_neurons)
+      beta: mean bias tensor, applied per neuron, shape (n_neurons)
       eps: small float added to the variance for stability
     Returns:
       out: batch-normalized tensor
-
-    TODO:
-      Implement the forward pass of batch normalization
-      Store constant non-tensor objects via ctx.constant=myconstant
-      Store tensors which you need in the backward pass via ctx.save_for_backward(tensor1, tensor2, ...)
-      Intermediate results can be decided to be either recomputed in the backward pass or to be stored
-      for the backward pass. Do not store tensors which are unnecessary for the backward pass to save memory!
-      For the case that you make use of torch.var be aware that the flag unbiased=False should be set.
     """
 
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    mean = input.mean(dim=0)
+    var = torch.mean((input - mean) ** 2, dim=0)
+    sqrt_var = torch.sqrt(var + eps)
+    x_hat = (input - mean) / sqrt_var
+    out = gamma * x_hat + beta
+    ctx.save_for_backward(gamma, x_hat, sqrt_var)
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -138,21 +135,28 @@ class CustomBatchNormManualFunction(torch.autograd.Function):
            whether tensors need gradients in backward pass
     Returns:
       out: tuple containing gradients for all input arguments
-    
-    TODO:
-      Retrieve saved tensors and constants via ctx.saved_tensors and ctx.constant
-      Compute gradients for inputs where ctx.needs_input_grad[idx] is True. Set gradients for other
-      inputs to None. This should be decided dynamically.
     """
 
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    batch_size = grad_output.shape[0]
+
+    gamma, x_hat, sqrt_var = ctx.saved_tensors
+    grad_input = grad_gamma = grad_beta = None
+
+    if ctx.needs_input_grad[0] or ctx.needs_input_grad[1]:
+      # Compute grad_gamma
+      grad_gamma = torch.sum(grad_output * x_hat, dim=0)
+    if ctx.needs_input_grad[0] or ctx.needs_input_grad[2]:
+      # Compute grad_beta
+      grad_beta = torch.sum(grad_output, dim=0)
+    if ctx.needs_input_grad[0]:
+      grad_input = batch_size * grad_output - grad_beta - x_hat * grad_gamma
+      grad_input = (grad_input * gamma)/(batch_size * sqrt_var)
     ########################
     # END OF YOUR CODE    #
     #######################
-
     # return gradients of the three tensor inputs and None for the constant eps
     return grad_input, grad_gamma, grad_beta, None
 
