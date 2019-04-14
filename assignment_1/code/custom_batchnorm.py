@@ -180,17 +180,18 @@ class CustomBatchNormManualModule(nn.Module):
     Args:
       n_neurons: int specifying the number of neurons
       eps: small float to be added to the variance for stability
-    
-    TODO:
-      Save parameters for the number of neurons and eps.
-      Initialize parameters gamma and beta via nn.Parameter
     """
     super(CustomBatchNormManualModule, self).__init__()
 
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    self.gamma = nn.Parameter(torch.Tensor(n_neurons))
+    self.beta = nn.Parameter(torch.Tensor(n_neurons))
+    nn.init.ones_(self.gamma)
+    nn.init.zeros_(self.beta)
+    self.n_neurons = n_neurons
+    self.eps = eps
     ########################
     # END OF YOUR CODE    #
     #######################
@@ -203,17 +204,19 @@ class CustomBatchNormManualModule(nn.Module):
       input: input tensor of shape (n_batch, n_neurons)
     Returns:
       out: batch-normalized tensor
-    
-    TODO:
-      Check for the correctness of the shape of the input tensor.
-      Instantiate a CustomBatchNormManualFunction.
-      Call it via its .apply() method.
     """
 
     ########################
     # PUT YOUR CODE HERE  #
     #######################
-    raise NotImplementedError
+    if input.dim() != 2:
+      raise ValueError('Expected 2D tensor but got {:d}D'.format(input.dim()))
+    if input.shape[1] != self.n_neurons:
+      msg = 'Number of neurons do not match, expected {:d}, got {:d}'
+      raise ValueError(msg.format(self.n_neurons, input.shape[1]))
+
+    out = CustomBatchNormManualFunction.apply(input,
+                                              self.gamma, self.beta, self.eps)
     ########################
     # END OF YOUR CODE    #
     #######################
