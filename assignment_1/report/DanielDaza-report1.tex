@@ -297,7 +297,7 @@ This vector is used during backpropagation to calculate the next gradients. In t
 \end{bmatrix}
 \end{equation}
 
-By matrix multiplication, every backward step of a module will then produce a matrix with one row per sample. When calculating the gradients of the parameters, each sample in the batch will produce a gradient matrix for $W^{(l)}$ and a gradient vector for $b^{(l)}$ via brodcasting of matrix multiplication. These gradient arrays can be averaged across the batch axis before updating the parameters.
+By matrix multiplication, every backward step of a module will then produce a matrix with one row per sample. When calculating the gradients of the parameters, each sample in the batch will produce a gradient matrix for $W^{(l)}$ and a gradient vector for $b^{(l)}$ via brodcasting of matrix multiplication. These gradient arrays can be aggregated across the batch axis before updating the parameters.
 
 \subsection*{Question 1.2: NumPy implementation}
 \label{sec:numpy}
@@ -474,6 +474,8 @@ where in the last step we have substituted $\partial L/\partial\beta_j$ and $\pa
 For this part we implemented the forward and backward equations derived in the previous section, which were tested by checking the gradient against a gradient computed numerically.
 
 \section{PyTorch CNN}
+
+\subsection*{Question 4}
 
 We implemented a Convolutional Neural Network (CNN) based on the VGG network for image recognition \cite{simonyan2014vgg}. It consists of a series of convolutional layers, batch normalization, ReLU and pooling layers. We train the network for 5,000 iterations, using the Adam optimizer with a learning rate of $1\times 10^{-4}$.
 
