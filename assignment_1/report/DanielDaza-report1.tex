@@ -75,11 +75,7 @@
 \maketitle
 
 \begin{abstract}
-  The abstract paragraph should be indented \nicefrac{1}{2}~inch (3~picas) on
-  both the left- and right-hand margins. Use 10~point type, with a vertical
-  spacing (leading) of 11~points.  The word \textbf{Abstract} must be centered,
-  bold, and in point size 12. Two line spaces precede the abstract. The abstract
-  must be limited to one paragraph.
+Neural networks are flexible function approximators that have a wide range of applications in artificial intelligence. In this work we derive the gradient equations that are needed to train a Multi-Layer Perceptron (MLP), and we implement and test its performance on the task of image classification. We additionally derive the gradient equations for the Batch-Normalization layer. Lastly, we implement a Convolutional Neural Network (CNN) and test it on the same task. We find that the MLP can generalize to samples outside the training set by using regularization techniques, albeit at a lower accuracy; and that networks with more parameters and appropriate prior structure, such as CNNs, yield better performance.
 \end{abstract}
 
 \section{MLP, backpropagation and NumPy implementation}
@@ -352,7 +348,6 @@ Learning rate & $\lbrace 1\times 10^{-3}, 5\times 10^{-4}, 1\times 10^{-4}\rbrac
 
 Table \ref{tab:hparams} also includes the best set of hyperparameters, which yielded an accuracy of 54.2\% in the test set. We note that the best model is not the one with more parameters, but a model in the mid range that is also regularized both with weight decay and dropout. The loss and accuracy curves for this model are shown in Figure \ref{fig:torch_curves}. We can see that the regularization methods effectively prevent the model from overfitting, as the gap between the training and test curves is controlled as the number of iteration increases. The accuracy curves also suggest that training for more iterations could further improve the performance on the test set.
 
-
 \begin{figure}[t]
 \begin{subfigure}{0.49\textwidth}
 \centering
@@ -480,6 +475,27 @@ For this part we implemented the forward and backward equations derived in the p
 
 \section{PyTorch CNN}
 
+We implemented a Convolutional Neural Network (CNN) based on the VGG network for image recognition \cite{simonyan2014vgg}. It consists of a series of convolutional layers, batch normalization, ReLU and pooling layers. We train the network for 5,000 iterations, using the Adam optimizer with a learning rate of $1\times 10^{-4}$.
+
+To account for the randomness introduced in the initialization of parameters, we train the model with 10 different random seeds. The model achieves an average accuracy in the test set of 77.0\% with a standard deviation of 0.6\%, with a maximum value of 78.5\%. We also train a model that does not include batch normalization, which achieves an accuracy of 73.8\%, showing that this layer is effective when training large neural networks, as shown by Ioffe and Szegedy (2015) \cite{ioffe2015batchnorm}.
+
+
+The loss and accuracy curves are shown in Figure \ref{fig:convnet_curves} for the model with the highest accuracy. The lower loss and higher accuracy values, compared to the performance of the MLP, show that CNNs are better suited for the task by introducing appropriate prior structure that considers translational invariance and parameter sharing. The network yields high accuracy without overfitting, as shown by the small difference between training and test performance.
+
+\begin{figure}[t]
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.22]{img/convnet-loss}
+\caption{}
+\end{subfigure}
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.22]{img/convnet-acc}
+\caption{}
+\end{subfigure}
+ \caption{Curves for (a) the loss, and (b) accuracy on the training and test splits for the CNN. Training values are averaged over 10 steps, and test values are measured every 100 steps.}
+\label{fig:convnet_curves}
+\end{figure}
 
 \bibliographystyle{unsrt}
 \bibliography{refs}

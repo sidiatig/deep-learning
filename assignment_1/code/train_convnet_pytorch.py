@@ -73,7 +73,6 @@ def train(_run):
   """
   Performs training and evaluation of ConvNet model. 
 
-  TODO:
   Implement training and evaluation of ConvNet model. Evaluate your model on the whole test set each eval_freq iterations.
   """
 
