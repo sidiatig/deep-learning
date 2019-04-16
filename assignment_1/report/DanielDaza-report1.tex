@@ -352,6 +352,7 @@ Learning rate & $\lbrace 1\times 10^{-3}, 5\times 10^{-4}, 1\times 10^{-4}\rbrac
 
 Table \ref{tab:hparams} also includes the best set of hyperparameters, which yielded an accuracy of 54.2\% in the test set. We note that the best model is not the one with more parameters, but a model in the mid range that is also regularized both with weight decay and dropout. The loss and accuracy curves for this model are shown in Figure \ref{fig:torch_curves}. We can see that the regularization methods effectively prevent the model from overfitting, as the gap between the training and test curves is controlled as the number of iteration increases. The accuracy curves also suggest that training for more iterations could further improve the performance on the test set.
 
+
 \begin{figure}[t]
 \begin{subfigure}{0.49\textwidth}
 \centering
@@ -410,6 +411,8 @@ We now derive the backpropagation equations for the batch normalization layer. W
 \left(\pd{L}{x}\right)_{jk} &= \pd{L}{x_j^k} \notag \\
 &= \pd{L}{y_j^k}\pd{y_j^k}{\hat{x}_j^k}\pd{\hat{x}_j^k}{x_j^k} + \sum_s \pd{L}{y_j^s}\pd{y_j^s}{\hat{x}_j^s}\left(\pd{\hat{x}_j^s}{\mu_j}\pd{\mu_j}{x_j^k} + \pd{\hat{x}_j^s}{\sigma_j^2}\left[\pd{\sigma_j^2}{x_j^k} + \pd{\sigma_j^2}{\mu_j}\pd{\mu_j}{x_j^k} \right] \right) \label{eq:dldx}
 \end{align}
+
+The derivatives required in the last equation are derived next:
 
 \begin{align*}
 \pd{y_j^k}{\hat{x}_j^k} &= \pd{}{\hat{x}_j^k}(\gamma_j\hat{x}_j^k + \beta_j) \\
@@ -471,7 +474,11 @@ Since this last derivative is 0, we do not need to calculate $\partial\mu_j/\par
 
 where in the last step we have substituted $\partial L/\partial\beta_j$ and $\partial L/\partial\gamma_j$, which can be computed first to be reused in the calculation of $\partial L/\partial x_j^k$.
 
-\subsection*{Question 3.2 b)}
+\subsection*{Questions 3.2 b) and c)}
+
+For this part we implemented the forward and backward equations derived in the previous section, which were tested by checking the gradient against a gradient computed numerically.
+
+\section{PyTorch CNN}
 
 
 \bibliographystyle{unsrt}
