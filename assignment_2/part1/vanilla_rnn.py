@@ -20,7 +20,6 @@ from __future__ import print_function
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import math
 
 ################################################################################
@@ -49,9 +48,9 @@ class VanillaRNN(nn.Module):
 
         for t in range(seq_length):
             x_t = x[:, t:t+1]
-            h_prev = F.tanh(x_t.matmul(self.whx.t())
-                            + h_prev.matmul(self.whh.t())
-                            + self.bias_h)
+            h_prev = torch.tanh(x_t.matmul(self.whx.t())
+                                + h_prev.matmul(self.whh.t())
+                                + self.bias_h)
         p = h_prev.matmul(self.wph.t()) + self.bias_p
 
         return p

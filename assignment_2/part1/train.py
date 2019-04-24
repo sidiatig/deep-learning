@@ -21,6 +21,7 @@ from __future__ import print_function
 import argparse
 import time
 from datetime import datetime
+import os
 import numpy as np
 
 import torch
@@ -28,12 +29,19 @@ from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.optim as optim
 
-from part1.dataset import PalindromeDataset
-from part1.vanilla_rnn import VanillaRNN
-from part1.lstm import LSTM
+from dataset import PalindromeDataset
+from vanilla_rnn import VanillaRNN
+from lstm import LSTM
 
-# You may want to look into tensorboardX for logging
-# from tensorboardX import SummaryWriter
+from sacred import Experiment
+from sacred.observers import MongoObserver
+
+ex = Experiment()
+# Set up database logs
+uri = os.environ.get('MLAB_URI')
+database = os.environ.get('MLAB_DB')
+if all([uri, database]):
+    ex.observers.append(MongoObserver.create(uri, database))
 
 ################################################################################
 
@@ -59,30 +67,39 @@ def accuracy(predictions, targets):
 
     return accuracy
 
-def train(config):
+@ex.config
+def config():
+    input_length = 5
+    tag = 'vanilla_rnn'
 
-    assert config.model_type in ('RNN', 'LSTM')
+@ex.capture
+def train(configs, input_length, _run):
+
+    assert configs.model_type in ('RNN', 'LSTM')
 
     # Initialize the device which to run the model on
-    device = torch.device(config.device)
+    device = torch.device(configs.device)
 
     # Initialize the model that we are going to use
-    model = VanillaRNN(config.input_length, config.input_dim,
-                       config.num_hidden, config.num_classes,
-                       config.batch_size, config.device)
+    model = VanillaRNN(input_length, configs.input_dim,
+                       configs.num_hidden, configs.num_classes,
+                       configs.batch_size, configs.device).to(device)
 
     # Initialize the dataset and data loader (note the +1)
-    dataset = PalindromeDataset(config.input_length+1)
-    data_loader = DataLoader(dataset, config.batch_size, num_workers=1)
+    dataset = PalindromeDataset(configs.input_length + 1)
+    data_loader = DataLoader(dataset, configs.batch_size, num_workers=1)
 
     # Setup the loss and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.RMSprop(model.parameters(), config.learning_rate)
+    optimizer = optim.RMSprop(model.parameters(), configs.learning_rate)
 
     for step, (batch_inputs, batch_targets) in enumerate(data_loader):
 
         # Only for time measurement of step through network
         t1 = time.time()
+
+        batch_inputs = batch_inputs.to(device)
+        batch_targets = batch_targets.to(device)
 
         out = model.forward(batch_inputs)
         batch_loss = criterion(out, batch_targets)
@@ -91,7 +108,7 @@ def train(config):
         ############################################################################
         # QUESTION: what happens here and why?
         ############################################################################
-        torch.nn.utils.clip_grad_norm(model.parameters(), max_norm=config.max_norm)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=configs.max_norm)
         ############################################################################
 
         optimizer.step()
@@ -101,22 +118,24 @@ def train(config):
 
         # Just for time measurement
         t2 = time.time()
-        examples_per_second = config.batch_size/float(t2-t1)
+        examples_per_second = configs.batch_size / float(t2 - t1)
 
         if step % 10 == 0:
 
             print("[{}] Train Step {:04d}/{:04d}, Batch Size = {}, Examples/Sec = {:.2f}, "
                   "Accuracy = {:.2f}, Loss = {:.3f}".format(
                     datetime.now().strftime("%Y-%m-%d %H:%M"), step,
-                    config.train_steps, config.batch_size, examples_per_second,
+                    configs.train_steps, configs.batch_size, examples_per_second,
                     acc, loss
             ))
 
-        if step == config.train_steps:
+            _run.log_scalar('train-loss', loss, step)
+            _run.log_scalar('train-acc', acc, step)
+
+        if step == configs.train_steps:
             break
 
     print('Done training.')
-
 
  ################################################################################
  ################################################################################
@@ -141,4 +160,10 @@ if __name__ == "__main__":
     config = parser.parse_args()
 
     # Train the model
-    train(config)
+    #train(config)
+    @ex.main
+    def run_exp():
+        train(config)
+
+    ex.run(config_updates={'input_length': config.input_length})
+
