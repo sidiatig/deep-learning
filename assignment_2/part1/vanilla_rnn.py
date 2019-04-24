@@ -20,6 +20,8 @@ from __future__ import print_function
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import math
 
 ################################################################################
 
@@ -27,8 +29,29 @@ class VanillaRNN(nn.Module):
 
     def __init__(self, seq_length, input_dim, num_hidden, num_classes, batch_size, device='cpu'):
         super(VanillaRNN, self).__init__()
-        # Initialization here ...
+
+        self.whx = nn.Parameter(torch.Tensor(num_hidden, input_dim))
+        self.whh = nn.Parameter(torch.Tensor(num_hidden, num_hidden))
+        self.bias_h = nn.Parameter(torch.Tensor(num_hidden))
+        self.wph = nn.Parameter(torch.Tensor(num_classes, num_hidden))
+        self.bias_p = nn.Parameter(torch.Tensor(num_classes))
+
+        stdv = 1.0 / math.sqrt(num_hidden)
+        for weight in self.parameters():
+            nn.init.uniform_(weight, -stdv, stdv)
+
+        self.register_buffer('h0', torch.zeros(1, num_hidden))
 
     def forward(self, x):
-        # Implementation here ...
-        pass
+        batch_size, seq_length = x.shape
+
+        h_prev = self.h0
+
+        for t in range(seq_length):
+            x_t = x[:, t:t+1]
+            h_prev = F.tanh(x_t.matmul(self.whx.t())
+                            + h_prev.matmul(self.whh.t())
+                            + self.bias_h)
+        p = h_prev.matmul(self.wph.t()) + self.bias_p
+
+        return p

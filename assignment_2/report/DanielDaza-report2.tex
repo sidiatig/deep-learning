@@ -67,14 +67,137 @@ The equations for the RNN are the following:
 \mathbf{h}^{(t)} &= \tanh(\mathbf{W}_{hx}\mathbf{x}^{(t)} + \mathbf{W}_{hh}\mathbf{h}^{(t-1)} + \mathbf{b}_h)\\
 \mathbf{p}^{(t)} &= \mathbf{W}_{ph}\mathbf{h}^{(t)} + \mathbf{b}_p\\
 \hat{\mathbf{y}} &= \text{softmax}(\mathbf{p}^{(T)}) \\
-\mathcal{L} &= -\sum_{k=1}^K \mathbf{y}_{k} \log\hat{\mathbf{y}_k}
+\mathcal{L} &= -\sum_{k=1}^K y_{k} \log\hat{y}_k
 \end{align}
 
-We now calculate the gradient of the loss at time step $T$, with respect to the parameters $\mathbf{W}_{ph}$ and $\mathbf{W}_{hh}$.
+We now calculate the gradient of the loss at time step $T$, with respect to the parameters $\mathbf{W}_{ph}$ and $\mathbf{W}_{hh}$. For brevity we define $\mathbf{p}^{(T)} = \mathbf{p}$.
 
+\begin{equation}
+\left(\pd{\mathcal{L}}{\mathbf{W}_{ph}}\right)_{ij} = \sum_u\pd{\mathcal{L}}{\hat{y}_u}\pd{\hat{y}_u}{p_i}\pd{p_i}{(\mathbf{W}_{ph})_{ij}}
+\label{eq:dWph}
+\end{equation}
+
+\begin{align*}
+\pd{\mathcal{L}}{\hat{y}_u} &= \pd{}{\hat{y}_u}\left(-\sum_{k=1}^K y_{k} \log\hat{y}_k\right) \\
+&=
+\left\lbrace
+\begin{matrix}
+\pd{}{\hat{y}_u}(-\log \hat{y}_u) & \text{if } u = \arg\max(\hat{y}_u) \\
+0 & \text{otherwise}
+\end{matrix}
+\right.\\
+&=
+\left\lbrace
+\begin{matrix}
+-1/\hat{y}_a & \text{if } u = \arg\max(\hat{y}_u) \\
+0 & \text{otherwise}
+\end{matrix}
+\right.
+\end{align*}
+
+where we have defined $a = \arg\max(\mathbf{y})$.
+
+\begin{align*}
+\pd{\hat{y}_u}{p_i} = \pd{}{p_i}\left(\frac{\exp(p_u)}{\sum_k\exp(p_k)}  \right)
+\end{align*}
+
+From assignment 1 we obtain the following result:
+
+\begin{align*}
+\pd{\hat{y}_u}{p_i} &=
+\left\lbrace
+\begin{matrix}
+-\hat{y}_u\hat{y}_i & \text{if } i \neq u \\
+\hat{y}_i -\hat{y}_u\hat{y}_i & \text{if } i = u
+\end{matrix}
+\right.
+\end{align*}
+
+\begin{align*}
+\left(\pd{p_i}{\mathbf{W}_{ph}} \right)_{ij} &= \pd{}{(\mathbf{W}_{ph})_{ij}}(\mathbf{W}_{ph}\mathbf{h}^{(T)} + \mathbf{b}_p)_i \\
+&= h^{(T)}_j
+\end{align*}
+
+Substituting the previous results in Eq. \ref{eq:dWph}, we obtain
+
+\begin{align*}
+\left(\pd{\mathcal{L}}{\mathbf{W}_{ph}}\right)_{ij} &= -\frac{1}{\hat{y}_a} \pd{\hat{y}_a}{p_i}h_j^{(T)} \\
+&=
+\left\lbrace
+\begin{matrix}
+-\frac{1}{\hat{y}_a}(-\hat{y}_a\hat{y}_i)h_j^{(T)} & \text{if } i \neq a \\
+-\frac{1}{\hat{y}_a}(\hat{y}_a -\hat{y}_a^2)h_j^{(T)} & \text{if } i = a
+\end{matrix}
+\right.\\
+&=
+\left\lbrace
+\begin{matrix}
+\hat{y}_i h_j^{(T)} & \text{if } i \neq a \\
+(\hat{y}_a - 1)h_j^{(T)} & \text{if } i = a
+\end{matrix}
+\right.\\
+&= (\hat{y}_i - y_i)h_j^{(T)}
+\end{align*}
+
+For the hidden-to-hidden weight matrix, we have
+
+\begin{equation}
+\left(\pd{\mathcal{L}}{\mathbf{W}_{hh}}\right)_{ij} = \sum_u\pd{\mathcal{L}}{h_u}\pd{h_u}{(\mathbf{W}_{ph})_{ij}}
+\label{eq:dWhh}
+\end{equation}
+
+The first term in the sum can be derived from the following results:
+
+\begin{align*}
+\pd{\mathcal{L}}{p_i} &= \sum_u\pd{\mathcal{L}}{\hat{y}_u}\pd{\hat{y}_u}{p_i} \\
+&= (\hat{y}_i - y_i)
+\end{align*}
+
+\begin{align*}
+\pd{p_i}{h_u} &= \pd{}{h_u}(\mathbf{W}_{ph}\mathbf{h}^{(T)} + \mathbf{b}_p)_i \\
+&= (\mathbf{W}_{ph})_{iu}
+\end{align*}
+
+\begin{align*}
+\pd{\mathcal{L}}{h_u} &= \sum_i\pd{\mathcal{L}}{p_i}\pd{p_i}{h_u} \\
+&= \sum_i(\hat{y}_i - y_i)(\mathbf{W}_{ph})_{iu} \\
+&= (\mathbf{W}_{ph}^\top)_{u:}(\hat{\mathbf{y}} - \hat{\mathbf{y}})
+\end{align*}
+
+Where the subindex $(\mathbf{W}_{ph}^\top)_{u:}$ denotes a slice with the $u$-th row of $(\mathbf{W}_{ph}^\top)$. The second term in the sum of Eq. \ref{eq:dWhh} is derived next.
+
+\begin{align*}
+\pd{h_u}{(\mathbf{W}_{hh})_{ij}} &=
+\pd{}{(\mathbf{W}_{hh})_{ij}}\tanh(\mathbf{W}_{hx}\mathbf{x}^{(T)} + \mathbf{W}_{hh}\mathbf{h}^{(T-1)} + \mathbf{b}_h)_u \\
+&=
+\pd{}{(\mathbf{W}_{hh})_{ij}}\tanh((\mathbf{W}_{hx})_{u:}^\top\mathbf{x}^{(T)} + (\mathbf{W}_{hh})_{u:}^\top\mathbf{h}^{(T-1)} + (\mathbf{b}_h)_u) \\
+&=
+(1 - (h_u^{(T)})^2) \pd{}{(\mathbf{W}_{hh})_{ij}}\sum_k (\mathbf{W}_{hh})_{uk}h^{(T-1)}_k \\
+&=
+(1 - (h_u^{(T)})^2) \sum_k\left\lbrace \pd{(\mathbf{W}_{hh})_{uk}}{(\mathbf{W}_{hh})_{ij}}h^{(T-1)}_k + \pd{h_k^{(T-1)}}{(\mathbf{W})_{ij}}(\mathbf{W}_{hh})_{uk}\right\rbrace
+\end{align*}
+
+Let $\delta_{ij}$ be 1 if $i=j$ and 0 otherwise. The derivative can then be written as
+
+\begin{equation}
+\pd{h_u}{(\mathbf{W}_{hh})_{ij}} =
+(1 - (h_u^{(T)})^2) \sum_k\left\lbrace \mathbb{I}[u=i]\mathbb{I}[j=k]  h^{(T-1)}_k + \pd{h_k^{(T-1)}}{(\mathbf{W})_{ij}}(\mathbf{W}_{hh})_{uk}\right\rbrace
+\label{eq:explode}
+\end{equation}
+
+Where $\mathbb{I}[s]$ is an indicator variable equal to 1 when the statement $s$ is true, and 0 otherwise. Substituting these results in Eq. \ref{eq:dWhh} we can calculate the required gradient:
+
+\begin{equation}
+\left(\pd{\mathcal{L}}{\mathbf{W}_{hh}}\right)_{ij} = \sum_u(\mathbf{W}_{ph}^\top)_{u:}(\hat{\mathbf{y}} - \hat{\mathbf{y}})\pd{h_u}{(\mathbf{W}_{ph})_{ij}}
+\end{equation}
+
+We observe an important difference in the gradients: while the gradient with respect to $\mathbf{W}_{ph}$ is simpler and depends only on the last time step, the gradient with respect to $\mathbf{W}_{hh}$ depends on the gradients of previous time steps, and at every time step these are multiplied by $\mathbf{W}_{hh}$ (this is shown in Eq. \ref{eq:explode}). Depending on the properties of $\mathbf{W}_{hh}$, the repeated multiplication can lead to vanishing or exploding gradients.
 
 \bibliographystyle{unsrt}
 \bibliography{refs}
+
+\subsubsection*{Question 1.2}
+
 
 
 \end{document}
