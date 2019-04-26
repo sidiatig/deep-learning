@@ -54,7 +54,7 @@
 \maketitle
 
 \begin{abstract}
-Hello world, this is a test.
+-
 \end{abstract}
 
 \section{Vanilla RNN versus LSTM}
@@ -64,10 +64,10 @@ Hello world, this is a test.
 The equations for the RNN are the following:
 
 \begin{align}
-\mathbf{h}^{(t)} &= \tanh(\mathbf{W}_{hx}\mathbf{x}^{(t)} + \mathbf{W}_{hh}\mathbf{h}^{(t-1)} + \mathbf{b}_h)\\
+\mathbf{h}^{(t)} &= \tanh(\mathbf{W}_{hx}\mathbf{x}^{(t)} + \mathbf{W}_{hh}\mathbf{h}^{(t-1)} + \mathbf{b}_h) \label{eq:rnn1}\\
 \mathbf{p}^{(t)} &= \mathbf{W}_{ph}\mathbf{h}^{(t)} + \mathbf{b}_p\\
 \hat{\mathbf{y}} &= \text{softmax}(\mathbf{p}^{(T)}) \\
-\mathcal{L} &= -\sum_{k=1}^K y_{k} \log\hat{y}_k
+\mathcal{L} &= -\sum_{k=1}^K y_{k} \log\hat{y}_k \label{eq:rnn2}
 \end{align}
 
 We now calculate the gradient of the loss at time step $T$, with respect to the parameters $\mathbf{W}_{ph}$ and $\mathbf{W}_{hh}$. For brevity we define $\mathbf{p}^{(T)} = \mathbf{p}$.
@@ -191,12 +191,54 @@ Where $\mathbb{I}[s]$ is an indicator variable equal to 1 when the statement $s$
 \left(\pd{\mathcal{L}}{\mathbf{W}_{hh}}\right)_{ij} = \sum_u(\mathbf{W}_{ph}^\top)_{u:}(\hat{\mathbf{y}} - \hat{\mathbf{y}})\pd{h_u}{(\mathbf{W}_{ph})_{ij}}
 \end{equation}
 
-We observe an important difference in the gradients: while the gradient with respect to $\mathbf{W}_{ph}$ is simpler and depends only on the last time step, the gradient with respect to $\mathbf{W}_{hh}$ depends on the gradients of previous time steps, and at every time step these are multiplied by $\mathbf{W}_{hh}$ (this is shown in Eq. \ref{eq:explode}). Depending on the properties of $\mathbf{W}_{hh}$, the repeated multiplication can lead to vanishing or exploding gradients.
+We observe an important difference in the gradients: while the gradient with respect to $\mathbf{W}_{ph}$ is simpler and depends only on the last time step, the gradient with respect to $\mathbf{W}_{hh}$ depends on the gradients of previous time steps, and at every time step these are multiplied by $\mathbf{W}_{hh}$ (this is shown in Eq. \ref{eq:explode}). Depending on the spectral radius of $\mathbf{W}_{hh}$, the repeated multiplication can lead to vanishing or exploding gradients.
+
+\subsubsection*{Question 1.2}
+
+For this question we implemented the RNN equations as described in equations \ref{eq:rnn1} to \ref{eq:rnn2} using PyTorch, in order to compute the gradients with its automatic differentiation engine. 
+
+We train an RNN in the task of predicting the last digit of a palindrome number. We use a hidden size of 128, with He initialization \cite{he2015delving}, and the RMSProp optimizer with a learning rate of 0.001. We additionally clip the norm of the gradients to a maximum of 10, to avoid exploding gradients, as shown to be of importance in the last sections when doing backpropagation on RNNs.
+
+\subsection*{Question 1.3}
+
+We study the performance of the RNN for sequences of different lengths. We start with sequences of length 5, for which the model achieves an accuracy of 100\% in a small number of iterations. When increasing the length, more iterations are required and the final accuracy is lower. This is shown in Figure \ref{fig:rnn_acc_curves}.
+
+We experiment with increasing sequence lengths, from 4 to 20, and for each length we run 10 experiments in order to evaluate the variance of the results. As shown in Figure \ref{fig:rnn_acc_box}, training on sequences of length 4 yields an accuracy of 100\% almost always. As the length increases, the variance grows as well, and at length 12 we observe the highest variance. This indicates that in this setting, the random initialization of the parameters might produce a very accurate model, or a model with random performance, revealing a high sensitivity on the parameter initialization. For lengths higher than 16 the final performance is consistently lower. These results highlight that RNNs are problematic when modeling long sequences.
+
+\begin{figure}[t]
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.22]{img/rnn-acc-L5}
+\caption{}
+\end{subfigure}
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.22]{img/rnn-acc-L15}
+\caption{}
+\end{subfigure}
+ \caption{Accuracy curves during training, for sequences of (a) length 5, and (b) length 15. While for a length of 5 the model converges quickly to a high accuracy, longer sequences take longer to converge and the final result is lower.}
+\label{fig:rnn_acc_curves}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[scale=0.7]{img/rnn-acc-Lbox}
+ \caption{Box plots depicting the distribution of the accuracy over 10 runs, for different sequence lengths. As the sequence length increases, obtaining a high accuracy is less likely, and longer sequences tend to random performance.}
+\label{fig:rnn_acc_box}
+\end{figure}
+
+
+
+We run each experiment multiple times as we observed results would vary as sequence length increased
+
+Loss curves for T = 5, 10, 15, 20
+
+Box plots for accuracy of T = 5:20
+
+Show examples of predicted sequences
 
 \bibliographystyle{unsrt}
 \bibliography{refs}
-
-\subsubsection*{Question 1.2}
 
 
 
