@@ -133,7 +133,8 @@ dmypy.json
 *.log
 *report*.pdf
 
-# Data folders
+# Data folders and files
 cifar-10-batches-py/
+*.npy
 
 *.swp

@@ -71,9 +71,10 @@ def accuracy(predictions, targets):
 def config():
     input_length = 5
     tag = 'vanilla_rnn'
+    log_train = False
 
 @ex.capture
-def train(configs, input_length, _run):
+def train(configs, input_length, log_train, _run):
 
     assert configs.model_type in ('RNN', 'LSTM')
 
@@ -129,13 +130,16 @@ def train(configs, input_length, _run):
                     acc, loss
             ))
 
-            _run.log_scalar('train-loss', loss, step)
-            _run.log_scalar('train-acc', acc, step)
+            if log_train:
+                _run.log_scalar('train-loss', loss, step)
+                _run.log_scalar('train-acc', acc, step)
 
         if step == configs.train_steps:
             break
 
     print('Done training.')
+
+    return acc
 
  ################################################################################
  ################################################################################
@@ -165,5 +169,23 @@ if __name__ == "__main__":
     def run_exp():
         train(config)
 
-    ex.run(config_updates={'input_length': config.input_length})
+
+    @ex.command
+    def seq_length_experiments():
+        ex.observers.clear()
+        N_EXPER = 10
+        results = np.empty(N_EXPER)
+        for i in range(N_EXPER):
+            results[i] = train(config)
+
+        np.save('accs_len{:d}'.format(config.input_length), results)
+
+    #ex.run(config_updates={'input_length': config.input_length,
+    #                       'log_train': True}
+    #       )
+
+    ex.run('seq_length_experiments',
+           config_updates={'input_length': config.input_length,
+                           'log_train': False}
+           )
 
