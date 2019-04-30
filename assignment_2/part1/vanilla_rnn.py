@@ -36,8 +36,10 @@ class VanillaRNN(nn.Module):
         self.bias_p = nn.Parameter(torch.Tensor(num_classes))
 
         stdv = 1.0 / math.sqrt(num_hidden)
-        for weight in self.parameters():
+        for weight in [self.whx, self.whh, self.wph]:
             nn.init.uniform_(weight, -stdv, stdv)
+        for weight in [self.bias_h, self.bias_p]:
+            nn.init.zeros_(weight)
 
         self.register_buffer('h0', torch.zeros(1, num_hidden))
 

@@ -137,15 +137,13 @@ def train(configs, input_length, log_train, _run):
         if step == configs.train_steps:
             break
 
-    print('Done training.')
-
     return acc
 
  ################################################################################
  ################################################################################
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     # Parse training configuration
     parser = argparse.ArgumentParser()
 
@@ -164,7 +162,7 @@ if __name__ == "__main__":
     config = parser.parse_args()
 
     # Train the model
-    #train(config)
+    # train(config)
     @ex.main
     def run_exp():
         train(config)
@@ -180,12 +178,12 @@ if __name__ == "__main__":
 
         np.save('accs_len{:d}'.format(config.input_length), results)
 
-    #ex.run(config_updates={'input_length': config.input_length,
-    #                       'log_train': True}
-    #       )
+    ex.run(config_updates={'input_length': config.input_length,
+                           'log_train': True}
+          )
 
-    ex.run('seq_length_experiments',
-           config_updates={'input_length': config.input_length,
-                           'log_train': False}
-           )
+    # ex.run('seq_length_experiments',
+    #        config_updates={'input_length': config.input_length,
+    #                        'log_train': False}
+    #        )
 
