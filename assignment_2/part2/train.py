@@ -25,6 +25,7 @@ import argparse
 import numpy as np
 
 import torch
+import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
@@ -33,21 +34,46 @@ from part2.model import TextGenerationModel
 
 ################################################################################
 
+def eval_accuracy(predictions, targets):
+    """
+    Computes the prediction accuracy, i.e. the average of correct predictions
+    of the network.
+
+    Args:
+      predictions: 2D float array of size [batch_size, n_classes]
+      targets: 2D int array of size [batch_size, n_classes]
+              with one-hot encoding. Ground truth labels for
+              each sample in the batch
+    Returns:
+      accuracy: scalar float, the accuracy of predictions,
+                i.e. the average correct predictions over the whole batch
+
+    Implement accuracy computation.
+    """
+    batch_size, seq_length = targets.shape
+    n_predictions = batch_size * seq_length
+    _, y_pred = predictions.max(dim=1)
+    accuracy = (y_pred == targets).sum().item() / n_predictions
+
+    return accuracy
+
 def train(config):
 
-    # Initialize the device which to run the model on
+    # Initialize the device
     device = torch.device(config.device)
 
-    # Initialize the model that we are going to use
-    model = TextGenerationModel( ... )  # fixme
-
     # Initialize the dataset and data loader (note the +1)
-    dataset = TextDataset( ... )  # fixme
+    dataset = TextDataset(config.txt_file, config.seq_length)
     data_loader = DataLoader(dataset, config.batch_size, num_workers=1)
 
+    # Initialize the model that we are going to use
+    model = TextGenerationModel(config.batch_size, config.seq_length,
+                                dataset.vocab_size, config.lstm_num_hidden,
+                                config.lstm_num_layers, device)
+
     # Setup the loss and optimizer
-    criterion = None  # fixme
-    optimizer = None  # fixme
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
 
     for step, (batch_inputs, batch_targets) in enumerate(data_loader):
 
@@ -57,16 +83,22 @@ def train(config):
         #######################################################
         # Add more code here ...
         #######################################################
+        batch_inputs = torch.tensor(batch_inputs, dtype=torch.long).to(device)
+        batch_targets = torch.tensor(batch_targets, dtype=torch.long).to(device)
 
-        loss = np.inf   # fixme
-        accuracy = 0.0  # fixme
+        optimizer.zero_grad()
+        logits = model(batch_inputs)
+        batch_loss = criterion(logits, batch_targets)
+        batch_loss.backward()
+        optimizer.step()
 
         # Just for time measurement
         t2 = time.time()
         examples_per_second = config.batch_size/float(t2-t1)
 
         if step % config.print_every == 0:
-
+            accuracy = eval_accuracy(logits, batch_targets)
+            loss = batch_loss.item()
             print("[{}] Train Step {:04d}/{:04d}, Batch Size = {}, Examples/Sec = {:.2f}, "
                   "Accuracy = {:.2f}, Loss = {:.3f}".format(
                     datetime.now().strftime("%Y-%m-%d %H:%M"), step,
@@ -79,8 +111,6 @@ def train(config):
             pass
 
         if step == config.train_steps:
-            # If you receive a PyTorch data-loader error, check this bug report:
-            # https://github.com/pytorch/pytorch/pull/9655
             break
 
     print('Done training.')
@@ -95,10 +125,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Model params
-    parser.add_argument('--txt_file', type=str, required=True, help="Path to a .txt file to train on")
+    parser.add_argument('--txt_file', type=str, required=True, help="Path to a .txt file for training")
     parser.add_argument('--seq_length', type=int, default=30, help='Length of an input sequence')
     parser.add_argument('--lstm_num_hidden', type=int, default=128, help='Number of hidden units in the LSTM')
     parser.add_argument('--lstm_num_layers', type=int, default=2, help='Number of LSTM layers in the model')
+    parser.add_argument('--device', type=str, default="cuda:0", help="Training device 'cpu' or 'cuda:0'")
 
     # Training params
     parser.add_argument('--batch_size', type=int, default=64, help='Number of examples to process in a batch')
@@ -109,7 +140,7 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate_step', type=int, default=5000, help='Learning rate step')
     parser.add_argument('--dropout_keep_prob', type=float, default=1.0, help='Dropout keep probability')
 
-    parser.add_argument('--train_steps', type=int, default=1e6, help='Number of training steps')
+    parser.add_argument('--train_steps', type=int, default=1000000, help='Number of training steps')
     parser.add_argument('--max_norm', type=float, default=5.0, help='--')
 
     # Misc params

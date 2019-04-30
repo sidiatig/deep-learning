@@ -135,6 +135,7 @@ dmypy.json
 
 # Data folders and files
 cifar-10-batches-py/
+assets/
 *.npy
 
 *.swp
