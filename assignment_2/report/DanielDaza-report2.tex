@@ -201,7 +201,7 @@ We train an RNN in the task of predicting the last digit of a palindrome number.
 
 \subsection*{Question 1.3}
 
-We study the performance of the RNN for sequences of different lengths. We start with sequences of length 5, for which the model achieves an accuracy of 100\% in a small number of iterations. When increasing the length, more iterations are required and the final accuracy is lower. This is shown in Figure \ref{fig:rnn_acc_curves}.
+We study the performance of the RNN for sequences of different lengths. We start with sequences of length 5, for which the model achieves an accuracy of 100\% in a small number of iterations. When increasing the length, a smaller learning rate is required, and therefore more iterations are needed to reach the same accuracy. This is shown in Figure \ref{fig:rnn_acc_curves}.
 
 We experiment with increasing sequence lengths, from 4 to 24, and for each length we run 10 experiments in order to evaluate the variance of the results. As shown in Figure \ref{fig:rnn_acc_box}, training on sequences of length 4 yields an accuracy of 100\% almost always. As the length increases, the variance grows as well, and at length 12 we observe the highest variance. This indicates that in this setting, the random initialization of the parameters might produce a very accurate model, or a model with random performance, revealing a high sensitivity on the parameter initialization. For lengths higher than 16 the final performance is consistently lower. These results demonstrate the fact that RNNs are problematic when modeling long sequences.
 
@@ -216,7 +216,7 @@ We experiment with increasing sequence lengths, from 4 to 24, and for each lengt
 \includegraphics[scale=0.22]{img/rnn-acc-L15}
 \caption{}
 \end{subfigure}
- \caption{Accuracy curves during training, for sequences of (a) length 5, and (b) length 15. While for a length of 5 the model converges quickly to a high accuracy, longer sequences take longer to converge and the final result is lower.}
+ \caption{Accuracy curves during training of the RNN, for sequences of (a) length 5, and (b) length 15. While for a length of 5 the model converges quickly to a high accuracy, longer sequences take longer for the model to converge to a good solution.}
 \label{fig:rnn_acc_curves}
 \end{figure}
 
@@ -251,9 +251,29 @@ In SGD, every parameter is updated with the gradient multiplied by the same lear
 \item[b)] Let $d$ be the dimension of the input, and $n$ the number of units in the LSTM. There are 8 weight matrices in the LSTM with a size of $(n, d)$, and 4 bias vectors of size $n$. Therefore, the number of trainable parameters in the LSTM cell is $8nd + 4b$. If we took into account the linear output layer that calculates $\mathbf{p}^{(t)}$, we would have to add $k(h + 1)$ parameterers, where $k$ is the number of outputs.
 \end{description}
 
+\subsection*{Question 1.6}
+
+We implemented the LSTM and trained it in the same way as the RNN. Figure \ref{fig:lstm_acc_curves} shows the accuracy curves for sequences of length 5 and 15. We observe that the network reaches an accuracy of 100\% in both cases. Interestingly, for sequences of length 15, the LSTM requires more iterations than the RNN. We attribute this to the increase in the number of parameters.
+
+
+\begin{figure}[t]
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.22]{img/lstm-acc-L5}
+\caption{}
+\end{subfigure}
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.22]{img/lstm-acc-L15}
+\caption{}
+\end{subfigure}
+ \caption{Accuracy curves during training of the LSTM, for sequences of (a) length 5, and (b) length 15. For this setting the LSTM converges more slowly to the solution than the RNN.}
+\label{fig:lstm_acc_curves}
+\end{figure}
+
+
+
+
 \bibliographystyle{unsrt}
 \bibliography{refs}
-
-
-
 \end{document}
