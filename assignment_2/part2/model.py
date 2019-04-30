@@ -30,8 +30,7 @@ class TextGenerationModel(nn.Module):
 
         self.lstm = nn.LSTM(input_size=vocabulary_size,
                             hidden_size=lstm_num_hidden,
-                            num_layers=lstm_num_layers,
-                            batch_first=True)
+                            num_layers=lstm_num_layers)
         self.linear_out = nn.Linear(in_features=lstm_num_hidden,
                                     out_features=vocabulary_size)
 
@@ -41,6 +40,6 @@ class TextGenerationModel(nn.Module):
     def forward(self, x):
         x_one_hot = self.one_hot_codes[x]
         out, _ = self.lstm(x_one_hot)
-        p = self.linear_out(out).transpose(1, 2)
+        p = self.linear_out(out).permute(1, 2, 0)
 
         return p

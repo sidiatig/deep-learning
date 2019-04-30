@@ -83,8 +83,8 @@ def train(config):
         #######################################################
         # Add more code here ...
         #######################################################
-        batch_inputs = torch.tensor(batch_inputs, dtype=torch.long).to(device)
-        batch_targets = torch.tensor(batch_targets, dtype=torch.long).to(device)
+        batch_inputs = torch.stack(batch_inputs).to(device)
+        batch_targets = torch.stack(batch_targets).t().to(device)
 
         optimizer.zero_grad()
         logits = model(batch_inputs)

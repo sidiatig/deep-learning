@@ -40,7 +40,7 @@ class TextDataset(data.Dataset):
         offset = np.random.randint(0, len(self._data)-self._seq_length-2)
         inputs = [self._char_to_ix[ch] for ch in self._data[offset:offset+self._seq_length]]
         targets = [self._char_to_ix[ch] for ch in self._data[offset+1:offset+self._seq_length+1]]
-        return np.array(inputs), np.array(targets)
+        return inputs, targets
 
     def convert_to_string(self, char_ix):
         return ''.join(self._ix_to_char[ix] for ix in char_ix)
