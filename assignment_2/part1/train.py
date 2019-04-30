@@ -29,9 +29,9 @@ from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.optim as optim
 
-from dataset import PalindromeDataset
-from vanilla_rnn import VanillaRNN
-from lstm import LSTM
+from part1.dataset import PalindromeDataset
+from part1.vanilla_rnn import VanillaRNN
+from part1.lstm import LSTM
 
 from sacred import Experiment
 from sacred.observers import MongoObserver
@@ -45,6 +45,7 @@ if all([uri, database]):
 
 ################################################################################
 
+
 def accuracy(predictions, targets):
     """
     Computes the prediction accuracy, i.e. the average of correct predictions
@@ -52,7 +53,7 @@ def accuracy(predictions, targets):
 
     Args:
       predictions: 2D float array of size [batch_size, n_classes]
-      labels: 2D int array of size [batch_size, n_classes]
+      targets: 2D int array of size [batch_size, n_classes]
               with one-hot encoding. Ground truth labels for
               each sample in the batch
     Returns:
