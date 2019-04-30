@@ -197,13 +197,13 @@ We observe an important difference in the gradients: while the gradient with res
 
 For this question we implemented the RNN equations as described in equations \ref{eq:rnn1} to \ref{eq:rnn2} using PyTorch, in order to compute the gradients with its automatic differentiation engine. 
 
-We train an RNN in the task of predicting the last digit of a palindrome number. We use a hidden size of 128, with He initialization \cite{he2015delving}, and the RMSProp optimizer with a learning rate of 0.001. We additionally clip the norm of the gradients to a maximum of 10, to avoid exploding gradients, as shown to be of importance in the last sections when doing backpropagation on RNNs.
+We train an RNN in the task of predicting the last digit of a palindrome number. We initialize the weight matrices with a uniform distribution $\mathcal{U}(-1/\sqrt{n_h}, 1/\sqrt{n_h})$, where $n_h$ is the dimension of the hidden state; and biases are initialized with zeros. We use a hidden size of 128, and the RMSProp optimizer with a learning rate of 0.001. We additionally clip the norm of the gradients to a maximum of 10, to avoid exploding gradients, as shown to be of importance in the last sections when doing backpropagation on RNNs.
 
 \subsection*{Question 1.3}
 
 We study the performance of the RNN for sequences of different lengths. We start with sequences of length 5, for which the model achieves an accuracy of 100\% in a small number of iterations. When increasing the length, more iterations are required and the final accuracy is lower. This is shown in Figure \ref{fig:rnn_acc_curves}.
 
-We experiment with increasing sequence lengths, from 4 to 20, and for each length we run 10 experiments in order to evaluate the variance of the results. As shown in Figure \ref{fig:rnn_acc_box}, training on sequences of length 4 yields an accuracy of 100\% almost always. As the length increases, the variance grows as well, and at length 12 we observe the highest variance. This indicates that in this setting, the random initialization of the parameters might produce a very accurate model, or a model with random performance, revealing a high sensitivity on the parameter initialization. For lengths higher than 16 the final performance is consistently lower. These results highlight that RNNs are problematic when modeling long sequences.
+We experiment with increasing sequence lengths, from 4 to 24, and for each length we run 10 experiments in order to evaluate the variance of the results. As shown in Figure \ref{fig:rnn_acc_box}, training on sequences of length 4 yields an accuracy of 100\% almost always. As the length increases, the variance grows as well, and at length 12 we observe the highest variance. This indicates that in this setting, the random initialization of the parameters might produce a very accurate model, or a model with random performance, revealing a high sensitivity on the parameter initialization. For lengths higher than 16 the final performance is consistently lower. These results demonstrate the fact that RNNs are problematic when modeling long sequences.
 
 \begin{figure}[t]
 \begin{subfigure}{0.49\textwidth}
@@ -227,15 +227,29 @@ We experiment with increasing sequence lengths, from 4 to 20, and for each lengt
 \label{fig:rnn_acc_box}
 \end{figure}
 
+\subsection*{Question 1.4}
 
+When doing optimization with Stochastic Gradient Descent (SGD), we update the parameters in the direction of the gradient of the loss function. This means that two parameter settings for which the gradient is the same, will be updated equally. This can be a limitation if the curvature of the loss function at the two points is different: if the curvature at a point is very low, the update will produce a small change in the loss, while if the curvature is high, the update can make a change too big in the loss function, which might end up at an even higher point. Therefore, it is sensible to include second order information of the gradient that takes into account the curvature of the loss function when updating the parameters.
 
-We run each experiment multiple times as we observed results would vary as sequence length increased
+A direct way to include second order information is to calculate the Hessian matrix, which contains the second derivatives of the loss with respect to all pairs of parameters in the network. As a consequence, evaluating this matrix has a complexity of $O(W^2)$ where $W$ is the number of parameters \cite{bishop2006pattern}. In deep learning, the number of parameters can be on the order of millions, which motivates finding alternative methods that consider curvature in the parameter updates. Two of these include momentum and adaptive learning rate.
 
-Loss curves for T = 5, 10, 15, 20
+When using momentum, we update the parameters with a moving average of the gradient, instead of the gradient only. In this way, every update takes into account previous values of the gradient, producing updates that are smoother than those of SGD.
 
-Box plots for accuracy of T = 5:20
+In SGD, every parameter is updated with the gradient multiplied by the same learning rate. During training, however, some parameters might be near the values of convergence, whereas other still need to be adjusted. It is thus reasonable to adapt the learning rate to each parameter, so that each one is affected only by its own influence on the loss function. Methods like RMSProp implement this by keeping a moving average of the squared gradients, whose inverse is used to multiply the gradient element-wise, effectively adjusting the gradients on different scales for each parameter.
 
-Show examples of predicted sequences
+\subsection*{Question 1.5}
+
+\begin{description}
+\item[a)] The LSTM is comprised by four gates:
+\begin{itemize}
+\item \textbf{Input modulation gate:} This gate prepares the previous hidden state $\mathbf{h}^{(t-1)}$ and the current input $\mathbf{x}^{(t)}$ to be processed for the current time step. It does so by applying a linear transformation to $\mathbf{h}^{(t-1)}$ and $\mathbf{x}^{(t)}$ and passing the result through a nonlinearity. The nonlinearity is required to give the network the ability to model complex a complex function of its input. The $\tanh$ function is a common choice that limits the range to the interval $(-1, 1)$, and constrains the magnitude of inputs of subsequent layers by saturating for large negative or positive inputs.
+\item \textbf{Input gate:} This gate determines the amount of the result of the input modulation gate $\mathbf{g}^{(t)}$ that is used to update the current cell state. This amount is determined by a linear transformation of the previous hidden state $\mathbf{h}^{(t-1)}$ and the current input $\mathbf{x}^{(t)}$, passed through a nonlinearity. In this case a sigmoid is used because it maps its inputs to the interval $(0,1)$, so that $\mathbf{g}^{(t)}$ is not used at all, when the input gate is 0, or used in its entirety, when the input gate is 1. The smooth, monotonic increase of the sigmoid function also allows partial use of $\mathbf{g}^{(t)}$.
+\item \textbf{Forget gate:} This gate determines how much of the previous cell state is preserved to update the current cell state, as a function of $\mathbf{h}^{(t-1)}$ and $\mathbf{x}^{(t)}$. A sigmoid is used as the nonlinearity for the same reason as the input gate.
+\item \textbf{Output gate:} This gate is used to modulate the amount of the updated current cell state used as the new hidden state $\mathbf{h}^{(t)}$, also as a function of $\mathbf{h}^{(t-1)}$ and $\mathbf{x}^{(t)}$, and using the sigmoid nonlinearity for the same reasons.
+\end{itemize}
+
+\item[b)] Let $d$ be the dimension of the input, and $n$ the number of units in the LSTM. There are 8 weight matrices in the LSTM with a size of $(n, d)$, and 4 bias vectors of size $n$. Therefore, the number of trainable parameters in the LSTM cell is $8nd + 4b$. If we took into account the linear output layer that calculates $\mathbf{p}^{(t)}$, we would have to add $k(h + 1)$ parameterers, where $k$ is the number of outputs.
+\end{description}
 
 \bibliographystyle{unsrt}
 \bibliography{refs}

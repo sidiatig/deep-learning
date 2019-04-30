@@ -82,9 +82,14 @@ def train(configs, input_length, log_train, _run):
     device = torch.device(configs.device)
 
     # Initialize the model that we are going to use
-    model = VanillaRNN(input_length, configs.input_dim,
-                       configs.num_hidden, configs.num_classes,
-                       configs.batch_size, configs.device).to(device)
+    if config.model_type == 'RNN':
+        model_class = VanillaRNN
+    else:
+        model_class = LSTM
+
+    model = model_class(input_length, configs.input_dim,
+                        configs.num_hidden, configs.num_classes,
+                        configs.batch_size, configs.device).to(device)
 
     # Initialize the dataset and data loader (note the +1)
     dataset = PalindromeDataset(configs.input_length + 1)
