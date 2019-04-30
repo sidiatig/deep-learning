@@ -70,7 +70,7 @@ def accuracy(predictions, targets):
 @ex.config
 def config():
     input_length = 5
-    tag = 'vanilla_rnn'
+    tag = 'lstm'
     log_train = False
 
 @ex.capture
@@ -183,12 +183,12 @@ if __name__ == "__main__":
 
         np.save('accs_len{:d}'.format(config.input_length), results)
 
-    ex.run(config_updates={'input_length': config.input_length,
-                           'log_train': True}
-          )
+    # ex.run(config_updates={'input_length': config.input_length,
+    #                        'log_train': True}
+    #       )
 
-    # ex.run('seq_length_experiments',
-    #        config_updates={'input_length': config.input_length,
-    #                        'log_train': False}
-    #        )
+    ex.run('seq_length_experiments',
+           config_updates={'input_length': config.input_length,
+                           'log_train': False}
+           )
 

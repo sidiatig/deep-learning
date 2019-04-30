@@ -4,10 +4,10 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --ntasks-per-node=1
 #SBATCH --time=0:05:00
-#SBATCH --mem=60000M
+#SBATCH --mem=10000M
 #SBATCH --partition=gpu_shared_course
 #SBATCH --gres=gpu:1
 
 source activate pytorch
 
-srun python -u train.py --input_length=20
+srun python -u train.py --input_length=15 --learning_rate=0.0001
