@@ -74,11 +74,12 @@ class TextGenerationModel(nn.Module):
         h = self.init_state.expand(-1, batch_size, -1).contiguous()
         c = self.init_state.expand(-1, batch_size, -1).contiguous()
 
-        for i in range(1, seq_length):
-            x_one_hot = self.one_hot_codes[x]
-            out, (h, c) = self.lstm(x_one_hot, (h, c))
-            p = self.linear_out(out)
-            _, x = p.max(dim=-1)
-            samples[:, i] = x
+        with torch.no_grad():
+            for i in range(1, seq_length):
+                x_one_hot = self.one_hot_codes[x]
+                out, (h, c) = self.lstm(x_one_hot, (h, c))
+                p = self.linear_out(out)
+                _, x = p.max(dim=-1)
+                samples[:, i] = x
 
         return samples
