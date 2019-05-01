@@ -22,17 +22,25 @@ import time
 from datetime import datetime
 import argparse
 
-import numpy as np
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, BatchSampler, RandomSampler
 
 from part2.dataset import TextDataset
 from part2.model import TextGenerationModel
 
+from sacred import Experiment
+from sacred.observers import MongoObserver
+
 ################################################################################
+ex = Experiment()
+# Set up database logs
+uri = os.environ.get('MLAB_URI')
+database = os.environ.get('MLAB_DB')
+if all([uri, database]):
+    ex.observers.append(MongoObserver.create(uri, database))
+
 
 def eval_accuracy(predictions, targets):
     """
@@ -57,19 +65,25 @@ def eval_accuracy(predictions, targets):
 
     return accuracy
 
-def train(config):
+
+@ex.command
+def train(_run):
+    config = argparse.Namespace(**_run.config)
 
     # Initialize the device
     device = torch.device(config.device)
 
     # Initialize the dataset and data loader (note the +1)
     dataset = TextDataset(config.txt_file, config.seq_length)
-    data_loader = DataLoader(dataset, config.batch_size, num_workers=1)
+    total_samples = int(config.train_steps*config.batch_size)
+    sampler = RandomSampler(dataset, replacement=True, num_samples=total_samples)
+    data_sampler = BatchSampler(sampler, config.batch_size, drop_last=False)
+    data_loader = DataLoader(dataset, num_workers=1, batch_sampler=data_sampler)
 
     # Initialize the model that we are going to use
     model = TextGenerationModel(config.batch_size, config.seq_length,
                                 dataset.vocab_size, config.lstm_num_hidden,
-                                config.lstm_num_layers, device)
+                                config.lstm_num_layers, device).to(device)
 
     # Setup the loss and optimizer
     criterion = nn.CrossEntropyLoss()
@@ -99,16 +113,27 @@ def train(config):
         if step % config.print_every == 0:
             accuracy = eval_accuracy(logits, batch_targets)
             loss = batch_loss.item()
-            print("[{}] Train Step {:04d}/{:04d}, Batch Size = {}, Examples/Sec = {:.2f}, "
-                  "Accuracy = {:.2f}, Loss = {:.3f}".format(
-                    datetime.now().strftime("%Y-%m-%d %H:%M"), step,
-                    config.train_steps, config.batch_size, examples_per_second,
-                    accuracy, loss
-            ))
+            log_str = ("[{}] Train Step {:04d}/{:04d}, "
+                       "Batch Size = {}, Examples/Sec = {:.2f}, "
+                       "Accuracy = {:.2f}, Loss = {:.3f}")
+            print(log_str.format(datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                 step, config.train_steps, config.batch_size,
+                                 examples_per_second, accuracy, loss))
 
-        if step == config.sample_every:
+            _run.log_scalar('loss', loss, step)
+            _run.log_scalar('acc', accuracy, step)
+
+        if step % config.sample_every == 0:
             # Generate some sentences by sampling from the model
-            pass
+            print('-' * config.sample_length)
+            x0 = torch.randint(low=0, high=dataset.vocab_size, size=(5,))
+            samples = model.sample(x0, config.sample_length).detach().cpu()
+            samples = samples.numpy()
+
+            for sample in samples:
+                print(dataset.convert_to_string(sample))
+
+            print('-' * config.sample_length)
 
         if step == config.train_steps:
             break
@@ -123,6 +148,8 @@ if __name__ == "__main__":
 
     # Parse training configuration
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('--command', type=str, choices=['train'], default='train')
 
     # Model params
     parser.add_argument('--txt_file', type=str, required=True, help="Path to a .txt file for training")
@@ -140,15 +167,34 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate_step', type=int, default=5000, help='Learning rate step')
     parser.add_argument('--dropout_keep_prob', type=float, default=1.0, help='Dropout keep probability')
 
-    parser.add_argument('--train_steps', type=int, default=1000000, help='Number of training steps')
+    parser.add_argument('--train_steps', type=int, default=100000, help='Number of training steps')
     parser.add_argument('--max_norm', type=float, default=5.0, help='--')
 
     # Misc params
     parser.add_argument('--summary_path', type=str, default="./summaries/", help='Output path for summaries')
     parser.add_argument('--print_every', type=int, default=5, help='How often to print training progress')
     parser.add_argument('--sample_every', type=int, default=100, help='How often to sample from the model')
+    parser.add_argument('--sample_length', type=int, default=100, help='Length of test sample sequences')
 
-    config = parser.parse_args()
+    args = parser.parse_args()
 
-    # Train the model
-    train(config)
+    @ex.config
+    def config():
+        txt_file = args.txt_file
+        seq_length = args.seq_length
+        lstm_num_hidden = args.lstm_num_hidden
+        lstm_num_layers = args.lstm_num_layers
+        device = args.device
+        batch_size = args.batch_size
+        learning_rate = args.learning_rate
+        learning_rate_decay = args.learning_rate_decay
+        learning_rate_step = args.learning_rate_step
+        dropout_keep_prob = args.dropout_keep_prob
+        train_steps = args.train_steps
+        max_norm = args.max_norm
+        summary_path = args.summary_path
+        print_every = args.print_every
+        sample_every = args.sample_every
+        sample_length = args.sample_length
+
+    ex.run(args.command)
