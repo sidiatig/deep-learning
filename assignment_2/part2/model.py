@@ -83,10 +83,9 @@ class TextGenerationModel(nn.Module):
         with torch.no_grad():
             for i in range(init_length, seq_length):
                 x_one_hot = self.one_hot_codes[x]
-                _, (h, c) = self.lstm(x_one_hot, (h, c))
-                h_out = h[-2:-1]
+                out, (h, c) = self.lstm(x_one_hot, (h, c))
 
-                p = self.linear_out(h_out)
+                p = self.linear_out(out[-1:])
                 _, x = p.max(dim=-1)
                 samples[i] = x
 
