@@ -31,19 +31,23 @@ class TextGenerationModel(nn.Module):
     Output: `(batch, V, seq_len)`: tensor containing the logits for each
         sample, for each t, where V is the vocabulary size.
     """
-    def __init__(self, batch_size, seq_length, vocabulary_size,
-                 lstm_num_hidden=256, lstm_num_layers=2, device='cuda:0'):
+    def __init__(self, vocab_size, lstm_num_hidden=256, lstm_num_layers=2):
         super(TextGenerationModel, self).__init__()
+        # Store in a dictionary arguments used to construct the model
+        self.hparams = locals()
+        self.hparams.pop('self')
+        self.hparams.pop('__class__')
 
-        self.lstm = nn.LSTM(input_size=vocabulary_size,
+        self.lstm = nn.LSTM(input_size=vocab_size,
                             hidden_size=lstm_num_hidden,
                             num_layers=lstm_num_layers)
         self.linear_out = nn.Linear(in_features=lstm_num_hidden,
-                                    out_features=vocabulary_size)
+                                    out_features=vocab_size)
 
-        one_hot_codes = torch.eye(vocabulary_size)
+        one_hot_codes = torch.eye(vocab_size)
         self.register_buffer('one_hot_codes', one_hot_codes)
-        self.register_buffer('init_state', torch.zeros(lstm_num_layers, 1, lstm_num_hidden))
+        init_state = torch.zeros(lstm_num_layers, 1, lstm_num_hidden)
+        self.register_buffer('init_state', init_state)
 
     def forward(self, x):
         x_one_hot = self.one_hot_codes[x]
@@ -52,34 +56,38 @@ class TextGenerationModel(nn.Module):
 
         return p
 
-    def sample(self, x0, seq_length):
+    def sample(self, x0, sample_length):
         """Generate sample sequences given initial words.
 
         Args
-            x0: `(batch,)`: tensor containing the initial word indices to
+            x0: `(init_len, batch)`: tensor containing the initial sequences to
                 generate a mini-batch of sequences.
-            seq_length (int): length of the sequence to generate
+            sample_length (int): length of the sequence to generate
 
         Return
             `(batch, seq_len)` tensor containing the indices of the
             generated sequences (including the initial word).
         """
-        assert seq_length > 0, "seq_length must be a positive integer"
+        assert sample_length > 0, "seq_length must be a positive integer"
 
-        batch_size, = x0.shape
-        samples = torch.empty(batch_size, seq_length, dtype=torch.long)
-        samples[:, 0] = x0
+        init_length, batch_size = x0.shape
+        seq_length = init_length + sample_length
+        samples = torch.empty(seq_length, batch_size,
+                              dtype=torch.long)
+        samples[:init_length] = x0
 
-        x = x0.view(1, -1)
+        x = x0
         h = self.init_state.expand(-1, batch_size, -1).contiguous()
         c = self.init_state.expand(-1, batch_size, -1).contiguous()
 
         with torch.no_grad():
-            for i in range(1, seq_length):
+            for i in range(init_length, seq_length):
                 x_one_hot = self.one_hot_codes[x]
-                out, (h, c) = self.lstm(x_one_hot, (h, c))
-                p = self.linear_out(out)
-                _, x = p.max(dim=-1)
-                samples[:, i] = x
+                _, (h, c) = self.lstm(x_one_hot, (h, c))
+                h_out = h[-2:-1]
 
-        return samples
+                p = self.linear_out(h_out)
+                _, x = p.max(dim=-1)
+                samples[i] = x
+
+        return samples.t()
