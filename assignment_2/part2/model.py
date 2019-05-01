@@ -53,13 +53,15 @@ class TextGenerationModel(nn.Module):
         return p
 
     def sample(self, x0, seq_length):
-        """Applies a multi-layer long short-term memory (LSTM) to an input
-        sequence.
+        """Generate sample sequences given initial words.
 
-        Input: `(batch,)`: tensor containing the initial word indices to
-            generate a mini-batch of sequences.
+        Args
+            x0: `(batch,)`: tensor containing the initial word indices to
+                generate a mini-batch of sequences.
+            seq_length (int): length of the sequence to generate
 
-        Output: `(batch, seq_len)`: tensor containing the indices of the
+        Return
+            `(batch, seq_len)` tensor containing the indices of the
             generated sequences (including the initial word).
         """
         assert seq_length > 0, "seq_length must be a positive integer"

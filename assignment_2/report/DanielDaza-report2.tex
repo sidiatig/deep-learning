@@ -28,9 +28,12 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{graphicx}
+\usepackage{makecell}
 \usepackage{subcaption}
 \usepackage{booktabs}
+
 \newcommand{\pd}[2]{\frac{\partial #1}{\partial #2}}
+\newcommand{\nl}{\newline}
 
 \title{Deep Learning\\Assignment 2: Recurrent Neural Networks and Graph Neural Networks}
 
@@ -223,7 +226,7 @@ We experiment with increasing sequence lengths, from 4 to 24, and for each lengt
 \begin{figure}[t]
 \centering
 \includegraphics[scale=0.7]{img/rnn-acc-Lbox}
- \caption{Box plots depicting the distribution of the accuracy over 10 runs, for different sequence lengths. As the sequence length increases, obtaining a high accuracy is less likely, and longer sequences tend to random performance.}
+ \caption{Box plots depicting the distribution of the accuracy over 10 runs of the RNN, for different sequence lengths. As the sequence length increases, obtaining a high accuracy is less likely, and longer sequences tend to random performance.}
 \label{fig:rnn_acc_box}
 \end{figure}
 
@@ -239,6 +242,8 @@ In SGD, every parameter is updated with the gradient multiplied by the same lear
 
 \subsection*{Question 1.5}
 
+In this section we examine the definition of the Long Short-Term Memory (LSTM) network \cite{hochreiter1997lstm} and its implementation.
+
 \begin{description}
 \item[a)] The LSTM is comprised by four gates:
 \begin{itemize}
@@ -248,12 +253,14 @@ In SGD, every parameter is updated with the gradient multiplied by the same lear
 \item \textbf{Output gate:} This gate is used to modulate the amount of the updated current cell state used as the new hidden state $\mathbf{h}^{(t)}$, also as a function of $\mathbf{h}^{(t-1)}$ and $\mathbf{x}^{(t)}$, and using the sigmoid nonlinearity for the same reasons.
 \end{itemize}
 
-\item[b)] Let $d$ be the dimension of the input, and $n$ the number of units in the LSTM. There are 8 weight matrices in the LSTM with a size of $(n, d)$, and 4 bias vectors of size $n$. Therefore, the number of trainable parameters in the LSTM cell is $8nd + 4b$. If we took into account the linear output layer that calculates $\mathbf{p}^{(t)}$, we would have to add $k(h + 1)$ parameterers, where $k$ is the number of outputs.
+\item[b)] Let $d$ be the dimension of the input, and $n$ the number of units in the LSTM. There are 8 weight matrices in the LSTM with a size of $(n, d)$, and 4 bias vectors of size $n$. Therefore, the number of trainable parameters in the LSTM cell is $n(8d + 4)$. If we took into account the linear output layer that calculates $\mathbf{p}^{(t)}$, we would have to add $k(h + 1)$ parameterers, where $k$ is the number of outputs.
 \end{description}
 
 \subsection*{Question 1.6}
 
 We implemented the LSTM and trained it in the same way as the RNN. Figure \ref{fig:lstm_acc_curves} shows the accuracy curves for sequences of length 5 and 15. We observe that the network reaches an accuracy of 100\% in both cases. Interestingly, for sequences of length 15, the LSTM requires more iterations than the RNN. We attribute this to the increase in the number of parameters.
+
+We also perform experiments for different sequence lengths, as done for the RNN. The results are shown in Figure \ref{fig:lstm_acc_box}, where we observe that the LSTM is much more robust to longer sequences. Only until sequences of length 24 we start observing some variance, but in some runs the model is still able to achieve an accuracy of 100\%. This shows that the LSTM has better memorization capabilities than the RNN, by using its gating mechanisms to control when to retain and forget information from the past.
 
 
 \begin{figure}[t]
@@ -271,7 +278,65 @@ We implemented the LSTM and trained it in the same way as the RNN. Figure \ref{f
 \label{fig:lstm_acc_curves}
 \end{figure}
 
+\begin{figure}[t]
+\centering
+\includegraphics[scale=0.7]{img/lstm-acc-Lbox}
+ \caption{Box plots depicting the distribution of the accuracy over 10 runs of the LSTM, for different sequence lengths. The LSTM shows increased robustness to longer sequences compared to the RNN.}
+\label{fig:lstm_acc_box}
+\end{figure}
 
+\section{Recurrent Nets as Generative Models}
+
+\subsection*{Question 2.1}
+
+\begin{description}
+\item[a)] We used PyTorch to train an LSTM network to model text sequences at the character level. In this task, for any character in the sequence, the LSTM needs to predict the next character. The corpus corresponds to the novel \textit{The adventures of Tom Sawyer}, by Mark Twain, which contains 69,693 words.
+
+
+We use an LSTM with two hidden layers, each with 128 units. The model is trained with the Adam optimizer \cite{kingma2014adam} with a learning rate of 0.002. We use a batch size of 64 sequences, and a maximum sequence length of 30 characters. After training for 100,000 iterations, the model achieves an accuracy of 71.3\%.
+
+\item[b)] During training, we randomly select 5 initial characters to generate samples of sequences of length 30. We do this by feeding the initial character to the LSTM, and then using the character with the maximum probability to feed it to the next step. We show these generated sequences for different steps during training next in Table \ref{tab:lstm-samples}.
+
+At the very beginning of training, we observe that regardless of the initial character, the LSTM generates the same sequences, as it has seen very few examples. In step 1,000 the network already produces some sensible words, but the sequences do not make much sense and they contain mostly the word \texttt{the}, possibly because of its higher frequency compared to other words. The sequence \texttt{sall} appears frequently, a possible explanation is that the sequences \texttt{sa} and \texttt{all the} are very frequent, and the model is starting to learn these short term dependencies, explaining why they end up connected in the sequence \texttt{sall the}.
+
+In step 10,000 we start to observe more interesting sequences. Some of the sentences are grammatical, and they include proper nouns, as shown by the name of the person \texttt{Mary}. Lastly, at iteration 100,000, the meaning behind the sequences is clear, and punctuation and contractions are generated as well.
+
+
+\begin{table}[t]
+\caption{Samples of text generated by the LSTM at different training steps. The first letter in each sequence is selected uniformly at random.}
+\label{tab:lstm-samples}
+\centering
+\begin{tabular}{p{1.5cm}p{6cm}}
+\bf Step & \bf Generated sequences \\
+\specialrule{.1em}{.05em}{.05em}
+1 & {\texttt{?MMMMMMMMMMMMMMMMMMMMMMMMMMMMM} \nl
+\texttt{iMMMMMMMMMMMMMMMMMMMMMMMMMMMMM} \nl
+\texttt{bMMMMMMMMMMMMMMMMMMMMMMMMMMMMM} \nl
+\texttt{UMMMMMMMMMMMMMMMMMMMMMMMMMMMMM} \nl
+\texttt{IMMMMMMMMMMMMMMMMMMMMMMMMMMMMM}} \\
+\hline
+1,000 & {\texttt{2 the sall the sall the sall t} \nl
+\texttt{Ung the sall the sall the sall} \nl
+\texttt{Jout the sall the sall the sal} \nl
+\texttt{[Tom the sall the sall the sal} \nl
+\texttt{No the sall the sall the sall }} \\
+\hline
+10,000 & {\texttt{But they were a shade of the s} \nl
+\texttt{ll they were a shade of the st} \nl
+\texttt{Mary in the stranger and the s} \nl
+\texttt{xt the same that the words wer} \nl
+\texttt{He was a shade of the stranger}} \\
+\hline
+100,000 & {\texttt{WITHIN a few minutes longer. } \nl
+\texttt{nd the stranger of the cave an} \nl
+\texttt{I was a little sufferer and th} \nl
+\texttt{What'll you take any more of t} \nl
+\texttt{ the stranger of the cave and t}} \\
+\end{tabular}
+\end{table}
+
+
+\end{description}
 
 
 \bibliographystyle{unsrt}

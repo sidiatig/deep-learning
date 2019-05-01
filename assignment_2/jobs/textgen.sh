@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=rnn
+#SBATCH --job-name=textgen
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --ntasks-per-node=1

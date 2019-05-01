@@ -21,5 +21,6 @@ plt.xlabel('Length')
 plt.ylabel('Accuracy')
 plt.xticks([i+1 for i in range(len(lengths))], lengths)
 plt.tight_layout()
+plt.ylim([0, 1.05])
 plt.show()
 
