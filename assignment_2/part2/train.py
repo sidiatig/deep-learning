@@ -125,7 +125,7 @@ def train(_run):
 
         if step % config.sample_every == 0:
             # Generate some sentences by sampling from the model
-            print('-' * config.sample_length)
+            print('-' * (config.sample_length + 1))
             x0 = torch.randint(low=0, high=dataset.vocab_size, size=(1, 5))
             samples = model.sample(x0, config.sample_length).detach().cpu()
             samples = samples.numpy()
@@ -133,7 +133,7 @@ def train(_run):
             for sample in samples:
                 print(dataset.convert_to_string(sample))
 
-            print('-' * config.sample_length)
+            print('-' * (config.sample_length + 1))
 
         if step == config.train_steps:
             break
@@ -163,13 +163,14 @@ def generate(_run):
                       dtype=torch.long).view(-1, 1)
 
     # Generate
-    samples = model.sample(x0, config.sample_length).detach().cpu().squeeze()
+    samples = model.sample(x0, config.sample_length,
+                           config.temperature).detach().cpu().squeeze()
 
-    print('Sample:')
+    print('\n\nSample:')
     print('-------')
     text = ''.join(ix_to_char[ix.item()] for ix in samples)
     print(text)
-    print('-------')
+    print('-------\n\n')
 
 ###############################################################################
 ###############################################################################
@@ -227,6 +228,9 @@ if __name__ == "__main__":
                         help='Path of the saved model for generation')
     parser.add_argument('--initial_seq', type=str, default=' ',
                         help='Sequence to initialize generation')
+    parser.add_argument('--temperature', type=float, default=0,
+                        help='Set to 0 for greedy sampling and higher values'
+                        'for increased randomness')
 
     args = parser.parse_args()
 
@@ -252,6 +256,7 @@ if __name__ == "__main__":
         timestamp = int(datetime.now().timestamp())
         model_path = args.model_path
         initial_seq = args.initial_seq
+        temperature = args.temperature
 
     if args.command == 'generate':
         ex.observers.clear()

@@ -137,5 +137,6 @@ dmypy.json
 cifar-10-batches-py/
 assets/
 *.npy
+*.pt
 
 *.swp

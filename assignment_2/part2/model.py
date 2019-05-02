@@ -11,7 +11,7 @@
 #
 # Author: Deep Learning Course | Fall 2018
 # Date Created: 2018-09-04
-################################################################################
+###############################################################################
 
 from __future__ import absolute_import
 from __future__ import division
@@ -56,14 +56,15 @@ class TextGenerationModel(nn.Module):
 
         return p
 
-    def sample(self, x0, sample_length):
+    def sample(self, x0, sample_length, temperature=0):
         """Generate sample sequences given initial words.
 
         Args
             x0: `(init_len, batch)`: tensor containing the initial sequences to
                 generate a mini-batch of sequences.
             sample_length (int): length of the sequence to generate
-
+            temperature (float): 0 indicates greedy sampling, higher values
+                increase randomness in the generated sequence. Default: 0
         Return
             `(batch, seq_len)` tensor containing the indices of the
             generated sequences (including the initial word).
@@ -86,7 +87,13 @@ class TextGenerationModel(nn.Module):
                 out, (h, c) = self.lstm(x_one_hot, (h, c))
 
                 p = self.linear_out(out[-1:])
-                _, x = p.max(dim=-1)
+                if temperature == 0:
+                    _, x = p.max(dim=-1)
+                else:
+                    p = p[0] / temperature
+                    probs = torch.softmax(p, dim=1)
+                    x = torch.multinomial(probs, num_samples=1).t()
+
                 samples[i] = x
 
         return samples.t()
