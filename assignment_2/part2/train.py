@@ -95,12 +95,11 @@ def train(_run):
         # Only for time measurement of step through network
         t1 = time.time()
 
-        #######################################################
-        # Add more code here ...
-        #######################################################
+        # Prepare data
         batch_inputs = torch.stack(batch_inputs).to(device)
         batch_targets = torch.stack(batch_targets).t().to(device)
 
+        # Forward, backward, optimize
         optimizer.zero_grad()
         logits = model(batch_inputs)
         batch_loss = criterion(logits, batch_targets)
@@ -127,7 +126,7 @@ def train(_run):
         if step % config.sample_every == 0:
             # Generate some sentences by sampling from the model
             print('-' * config.sample_length)
-            x0 = torch.randint(low=0, high=dataset.vocab_size, size=(4, 5))
+            x0 = torch.randint(low=0, high=dataset.vocab_size, size=(1, 5))
             samples = model.sample(x0, config.sample_length).detach().cpu()
             samples = samples.numpy()
 
@@ -152,7 +151,7 @@ def train(_run):
 def generate(_run):
     config = argparse.Namespace(**_run.config)
 
-    # Load model and vobulary mappings
+    # Load trained model and vobulary mappings
     checkpoint = torch.load(config.model_path, map_location='cpu')
     model = TextGenerationModel(**checkpoint['hparams'])
     model.load_state_dict(checkpoint['state_dict'])
@@ -166,8 +165,11 @@ def generate(_run):
     # Generate
     samples = model.sample(x0, config.sample_length).detach().cpu().squeeze()
 
+    print('Sample:')
+    print('-------')
     text = ''.join(ix_to_char[ix.item()] for ix in samples)
     print(text)
+    print('-------')
 
 ###############################################################################
 ###############################################################################
@@ -206,7 +208,7 @@ if __name__ == "__main__":
     parser.add_argument('--dropout_keep_prob', type=float, default=1.0,
                         help='Dropout keep probability')
 
-    parser.add_argument('--train_steps', type=int, default=100000,
+    parser.add_argument('--train_steps', type=int, default=200000,
                         help='Number of training steps')
     parser.add_argument('--max_norm', type=float, default=5.0, help='--')
 
