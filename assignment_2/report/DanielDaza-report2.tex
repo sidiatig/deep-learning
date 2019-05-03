@@ -57,7 +57,7 @@
 \maketitle
 
 \begin{abstract}
--
+In this work we are concerned with two architectures widely used in deep learning: Recurrent Neural Networks (RNN) and Graph Neural Networks (GNN). We study the properties of gradients in an RNN and we implement it, as well as the Long Short-Term Memory network (LSTM). We carry out experiments on sequence prediction and text generation, and we analyze the effect of sequence length on these architectures. Lastly, we examine the propagation rule of Graph Convolutional Networks, and explore its properties and applications in comparison to RNNs.
 \end{abstract}
 
 \section{Vanilla RNN versus LSTM}
@@ -302,7 +302,7 @@ At the very beginning of training, we observe that regardless of the initial cha
 In step 10,000 we start to observe more interesting sequences. Some of the sentences are grammatical, and they include proper nouns, as shown by the name of the person \texttt{Mary}. Lastly, at iteration 100,000, the meaning behind most of the sequences is clear, and punctuation and contractions are generated as well.
 
 
-\item[c)] The sequences generated in the previous part are deterministic, as we always choose the next character with the highest probability. We now introduce randomness in the sampling procedure, by drawing characters from a categorical distribution parameterized by the probabilities of the softmax layer. We introduce a \textit{temperature} parameter $T$ that controls the entropy of the distribution: for $T = 0$ the probability of the character with the largest logit is 1, and as we increase $T$,  the distribution will tend to be uniform. The results for multiple values of $T$ are shown in Table \ref{tab:lstm-samples-temp}. We see that at temperatures of 0 and 0.5 the sequences seem to preserve some grammatical structure. As the temperature increases, the sequences make less sense. At a temperature of 2 multiple new line characters, as well as symbols like underscores and exclamation marks. We can see clearly that high temperature values introduce more diversity in the sequences, but their meaning is less certain.
+\item[c)] The sequences generated in the previous part are deterministic, as we always choose the next character with the highest probability. We now introduce randomness in the sampling procedure, by drawing characters from a categorical distribution parameterized by the probabilities of the softmax layer. We introduce a \textit{temperature} parameter $T$ that controls the entropy of the distribution: for $T = 0$ the probability of the character with the largest logit is 1, and as we increase $T$,  the distribution will tend to be uniform. The results for multiple values of $T$ are shown in Table \ref{tab:lstm-samples-temp}. We see that at temperatures of 0 and 0.5 the sequences seem to preserve some grammatical structure. As the temperature increases, the sequences make less sense. At a temperature of 2 multiple new line characters appear, as well as symbols like underscores and exclamation marks. We can see clearly that high temperature values introduce more diversity in the sequences, but their meaning is less certain.
 
 
 \end{description}
@@ -383,7 +383,53 @@ All right, I reckon they're coming! They're \_tall! You see, said Tom. But there
 \end{tabular}
 \end{table}
 
-Generally speaking, the sequences are grammatically correct in short contexts, but when considering a broader scope the meaning is lost. This shows that the trained LSTM cannot handle very well complex dependencies over long spans. When given an initial sequence, the generated text that follows is correct but soon the meaning of the initial sequence is lost. This can be seen in all the examples, where the initial sequences mention the word aunt, a cave, and water, but the generated sequences have little connection with them. Lastly, we also observe that some sequences appear with special frequency, as in the case of \texttt{the stranger of}, which suggests that the LSTM might have overfit to this particular sequence.
+Generally speaking, the sequences are grammatically correct in short contexts, but when considering a broader scope the meaning is lost. This shows that the trained LSTM cannot handle very well complex dependencies over long spans. When given an initial sequence, the generated text that follows is correct but soon the meaning of the initial sequence is lost. This can be seen in all the examples, where the initial sequences mention the word ``aunt'', a cave, and water, but the generated sequences have little connection with them. Lastly, we also observe that some sequences appear with special frequency, as in the case of \texttt{the stranger of}, which suggests that the LSTM might have overfit to this particular sequence.
+
+\section{Graph Neural Networks}
+
+\subsection*{Question 3.1}
+
+\begin{description}
+\item[a)] The propagation rule of the GCN is given by the following formula:
+\begin{equation}
+H^{(l+1)} = \sigma(\hat{A}H^{(l)}W^{(l)})
+\label{eq:gcn}
+\end{equation}
+
+From this equation, we can see that the network exploits structural information by introducing the adjacency matrix. In a regular, fully connected network, the adjacency matrix is not present in the propagation rule, so each feature in the rows of $H^{(l+1)}$ is only affected by the corresponding row of $H^{(l)}$, dismissing any relationship between a node and its neighbors. By introducing the adjacency matrix in the propagation rule, neighborhood information is taken into account.
+
+To see this, let $h_i^{(l+1)}\in\mathbb{R}^{1\times d}$ be the $i$-th row of $H^{(l+1)}$, corresponding to the feature of node $i$ at layer $l+1$. For simplicity, we have assumed all layers to have the same output dimension $d$. Let $\hat{A}_{i:}$ denote a slice with the $i$-th row of $\hat{A}$. From equation \ref{eq:gcn}, we have:
+\begin{align*}
+h_i^{(l+1)} &=  \sigma\left(\hat{A}_{i:}H^{(l)}W^{(l)} \right)\\
+&= \sigma\left(\sum_{\mathcal{N}(i)} \left(H^{(l)}W^{(l)} \right)_{i:} \right)\\
+&= \sigma\left(\sum_{\mathcal{N}(i)} h_i^{(l)}W^{(l)}\right)
+\end{align*}
+
+Here $\mathcal{N}(i)$ denotes the set of neighbors of node $i$. Since $\hat{A}$ is a sparse binary matrix, we see that its end effect is to aggregate the features of a node and its neighbors. This can be seen as a form of message passing, where a single forward pass through the GCN layer produces a new feature vector $h_i^{(l+1)}$ for node $i$, that is the result of summing the features of its neighbors and itself, after each one has been multiplied by a weight matrix $W^{(l)}$, and passing the result through a nonlinearity.
+
+\item[b)] As we saw in the previous question, a single layer aggregates features from a node and its immediate neighbors. Therefore, 3 layers are required to propagate information from nodes 3 hops away.
+\end{description}
+
+\subsection*{Question 3.2}
+
+Graphs are data structures well suited for applications involving discrete entities and relations between them, to which GNNs can be naturally applied. Examples of these applications include knowledge graphs \cite{nickel2016review,schlichtkrull2018modeling,das2018building}, scene understanding \cite{xu2017scene,herzig2018mapping,liang2018symbolic}, biological interaction networks \cite{hamilton2018embedding}, and citation networks \cite{yang2015network,kipf2016semi,zhang2018diffusion}. Common tasks of interests within these problems include labeling entities according to communities or their structural role, predicting links between entities, and assigning a label to an entity or a graph \cite{hamilton2017representation,bojchevski2017deep,cangea2018towards}. 
+
+GNNs can also be used in chemistry for tasks like drug discovery \cite{gilmer2017nmp}, and in combination with methods like reinforcement learning, they can also be used to generate novel molecules \cite{de2018molgan}.
+
+\subsection*{Question 3.3}
+
+\begin{description}
+\item[a)] RNNs are well suited for chain-like sequences, where every element of the sequence is processed after the other, by accumulating the information from the past. This could apply to sequences of words, or frames in a video. In theory, a GNN can also be used in this application as the sequence can be viewed as a chain of nodes, but in order to propagate information from the first element of the sequence to the last, a number of layers equal to the number of elements in the sequence is required, which might not be straightforward in the case of variable-length sequences. Therefore, an RNN would be better suited for this task. 
+
+If a sentence is described in terms of its syntactic tree, a GNN could also be used, but if the tree is large, as before there might not be enough layers in the GNN to propagate information from the leaves to the root of the tree. RNNs, on the other hand, can further be adapted to work with a tree representation of the sentence \cite{tai2015treelstm}, offering a more natural approach to this problem.
+
+When we have a large graph, such as a citation network with publications as nodes, and we want to classify a node in the graph, a DFS or BFS sequential representation is not practical. First, it is based on a prior ordering of the nodes in the tree, and second, for a particular node in the graph, using an RNN to process a DFS or BFS representation would accumulate information from parts of the graph that might not necessary to classify a node, making it harder for the classifier to solve the problem. Instead, an aggregation method that only takes into account a neighborhood of a node is a better solution, which is provided by GNNs.
+
+\item[b)] If we have a scene with multiple entities that are interacting with each other, that changes over time, then a GNN could be used to model the interactions while a recurrent network could aggregate these over time to obtain a relational representation across time. This approach has been used in Relational Recurrent Networks \cite{santoro2017relationalrnn} in tasks such as program evaluation, language modeling and reinforcement learning.
+
+For some problems, the assumption of a static graph does not hold, as multiple nodes and edges can be added or removed through time. A GNN could be extended with a recurrent component to account for changes in the structure of the graph and their effect on future representations. This can be achieved by adding a cell based on the LSTM \cite{manessi2017dynamic,Ma2018StreamingGN}.
+\end{description}
+
 
 
 \bibliographystyle{unsrt}
