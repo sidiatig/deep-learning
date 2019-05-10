@@ -1,3 +1,4 @@
+import os
 import argparse
 
 import torch
@@ -7,10 +8,22 @@ from torchvision.utils import make_grid
 
 from datasets.bmnist import bmnist
 
-IMG_PIXELS = 28 * 28
+from sacred import Experiment
+from sacred.observers import MongoObserver
+
+ex = Experiment()
+# Set up database logs
+uri = os.environ.get('MLAB_URI')
+database = os.environ.get('MLAB_DB')
+if all([uri, database]):
+    ex.observers.append(MongoObserver.create(uri, database))
+
+IMG_WIDTH = 28
+IMG_HEIGHT = 28
+IMG_PIXELS = IMG_WIDTH * IMG_HEIGHT
+
 
 class Encoder(nn.Module):
-
     def __init__(self, hidden_dim=500, z_dim=20):
         super().__init__()
 
@@ -36,7 +49,6 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-
     def __init__(self, hidden_dim=500, z_dim=20):
         super().__init__()
 
@@ -57,7 +69,6 @@ class Decoder(nn.Module):
 
 
 class VAE(nn.Module):
-
     def __init__(self, hidden_dim=500, z_dim=20):
         super().__init__()
 
@@ -71,7 +82,6 @@ class VAE(nn.Module):
         Given input, perform an encoding and decoding step and return the
         negative average elbo for the given batch.
         """
-
         mean, logvar = self.encoder(input)
         z = mean + torch.randn_like(mean) * torch.sqrt(torch.exp(logvar))
         x_rec = self.decoder(z)
@@ -79,9 +89,7 @@ class VAE(nn.Module):
         rec_loss = self.rec_loss(x_rec, input).sum(dim=-1)
         kl = 0.5 * (torch.exp(logvar) + mean**2 - logvar - 1).sum(dim=-1)
 
-        average_negative_elbo = rec_loss.mean() + kl.mean()
-
-        return average_negative_elbo
+        return rec_loss.mean(), kl.mean()
 
     def sample(self, n_samples):
         """
@@ -89,8 +97,9 @@ class VAE(nn.Module):
         (from bernoulli) and the means for these bernoullis (as these are
         used to plot the data manifold).
         """
-        sampled_ims, im_means = None, None
-        raise NotImplementedError()
+        z = torch.randn((n_samples, self.z_dim))
+        im_means = torch.sigmoid(self.decoder(z))
+        sampled_ims = torch.bernoulli(im_means)
 
         return sampled_ims, im_means
 
@@ -105,7 +114,8 @@ def epoch_iter(model, data, optimizer):
     average_epoch_elbo = 0
 
     for imgs in data:
-        avg_elbo = model(imgs.view(-1, IMG_PIXELS))
+        rec_loss, kl = model(imgs.view(-1, IMG_PIXELS))
+        avg_elbo = rec_loss + kl
         average_epoch_elbo += avg_elbo.item()
 
         if model.training:
@@ -145,31 +155,40 @@ def save_elbo_plot(train_curve, val_curve, filename):
     plt.savefig(filename)
 
 
-def main():
+def save_samples(model, fname):
+    samples, _ = model.sample(n_samples=16)
+    samples = samples.cpu().detach()
+    grid = make_grid(samples.reshape(-1, 1, IMG_WIDTH, IMG_HEIGHT),
+                     nrow=4)
+    plt.cla()
+    plt.imshow(grid.permute(1, 2, 0).numpy())
+    plt.axis('off')
+    plt.savefig(fname)
+
+
+@ex.main
+def main(epochs, zdim, _run):
     data = bmnist()[:2]  # ignore test split
-    model = VAE(z_dim=ARGS.zdim)
+    model = VAE(z_dim=zdim)
     optimizer = torch.optim.Adam(model.parameters())
 
-    train_curve, val_curve = [], []
-    for epoch in range(ARGS.epochs):
-        elbos = run_epoch(model, data, optimizer)
-        train_elbo, val_elbo = elbos
-        train_curve.append(train_elbo)
-        val_curve.append(val_elbo)
-        print(f"[Epoch {epoch}] train elbo: {train_elbo} val_elbo: {val_elbo}")
+    for epoch in range(1, epochs + 1):
+        if 100 * (epoch//epochs) in [0, 50, 100]:
+            fname = 'samples_{:d}.png'.format(epoch)
+            save_samples(model, fname)
 
-        # --------------------------------------------------------------------
-        #  Add functionality to plot samples from model during training.
-        #  You can use the make_grid functioanlity that is already imported.
-        # --------------------------------------------------------------------
+        elbos = run_epoch(model, data, optimizer)
+
+        train_elbo, val_elbo = elbos
+        print(f"[Epoch {epoch}] train elbo: {train_elbo} val_elbo: {val_elbo}")
+        _run.log_scalar('train_elbo', train_elbo, epoch)
+        _run.log_scalar('val_elbo', val_elbo, epoch)
 
     # --------------------------------------------------------------------
     #  Add functionality to plot plot the learned data manifold after
     #  if required (i.e., if zdim == 2). You can use the make_grid
     #  functionality that is already imported.
     # --------------------------------------------------------------------
-
-    save_elbo_plot(train_curve, val_curve, 'elbo.pdf')
 
 
 if __name__ == "__main__":
@@ -179,6 +198,11 @@ if __name__ == "__main__":
     parser.add_argument('--zdim', default=20, type=int,
                         help='dimensionality of latent space')
 
-    ARGS = parser.parse_args()
+    args = parser.parse_args()
 
-    main()
+    @ex.config
+    def config():
+        epochs = args.epochs
+        zdim = args.epochs
+
+    ex.run()

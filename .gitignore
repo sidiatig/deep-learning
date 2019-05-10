@@ -137,6 +137,7 @@ dmypy.json
 cifar-10-batches-py/
 assets/
 data/
+saved/
 *.npy
 *.pt
 
