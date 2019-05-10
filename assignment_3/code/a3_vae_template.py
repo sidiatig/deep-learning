@@ -7,11 +7,19 @@ from torchvision.utils import make_grid
 
 from datasets.bmnist import bmnist
 
+IMG_PIXELS = 28 * 28
 
 class Encoder(nn.Module):
 
     def __init__(self, hidden_dim=500, z_dim=20):
         super().__init__()
+
+        self.linear = nn.Linear(in_features=IMG_PIXELS,
+                                out_features=hidden_dim)
+        self.linear_mu = nn.Linear(in_features=hidden_dim,
+                                   out_features=z_dim)
+        self.linear_logvar = nn.Linear(in_features=hidden_dim,
+                                       out_features=z_dim)
 
     def forward(self, input):
         """
@@ -20,10 +28,11 @@ class Encoder(nn.Module):
         Returns mean and std with shape [batch_size, z_dim]. Make sure
         that any constraints are enforced.
         """
-        mean, std = None, None
-        raise NotImplementedError()
+        h = torch.relu(self.linear(input))
+        mean = self.linear_mu(h)
+        logvar = self.linear_logvar(h)
 
-        return mean, std
+        return mean, logvar
 
 
 class Decoder(nn.Module):
@@ -31,15 +40,19 @@ class Decoder(nn.Module):
     def __init__(self, hidden_dim=500, z_dim=20):
         super().__init__()
 
+        self.layers = nn.Sequential(nn.Linear(in_features=z_dim,
+                                              out_features=hidden_dim),
+                                    nn.ReLU(),
+                                    nn.Linear(in_features=hidden_dim,
+                                              out_features=IMG_PIXELS))
+
     def forward(self, input):
         """
         Perform forward pass of encoder.
 
         Returns mean with shape [batch_size, 784].
         """
-        mean = None
-        raise NotImplementedError()
-
+        mean = self.layers(input)
         return mean
 
 
@@ -51,14 +64,23 @@ class VAE(nn.Module):
         self.z_dim = z_dim
         self.encoder = Encoder(hidden_dim, z_dim)
         self.decoder = Decoder(hidden_dim, z_dim)
+        self.rec_loss = nn.BCEWithLogitsLoss(reduction='none')
 
     def forward(self, input):
         """
         Given input, perform an encoding and decoding step and return the
         negative average elbo for the given batch.
         """
-        average_negative_elbo = None
-        raise NotImplementedError()
+
+        mean, logvar = self.encoder(input)
+        z = mean + torch.randn_like(mean) * torch.sqrt(torch.exp(logvar))
+        x_rec = self.decoder(z)
+
+        rec_loss = self.rec_loss(x_rec, input).sum(dim=-1)
+        kl = 0.5 * (torch.exp(logvar) + mean**2 - logvar - 1).sum(dim=-1)
+
+        average_negative_elbo = rec_loss.mean() + kl.mean()
+
         return average_negative_elbo
 
     def sample(self, n_samples):
@@ -80,8 +102,18 @@ def epoch_iter(model, data, optimizer):
 
     Returns the average elbo for the complete epoch.
     """
-    average_epoch_elbo = None
-    raise NotImplementedError()
+    average_epoch_elbo = 0
+
+    for imgs in data:
+        avg_elbo = model(imgs.view(-1, IMG_PIXELS))
+        average_epoch_elbo += avg_elbo.item()
+
+        if model.training:
+            optimizer.zero_grad()
+            avg_elbo.backward()
+            optimizer.step()
+
+    average_epoch_elbo /= len(data)
 
     return average_epoch_elbo
 
@@ -95,8 +127,9 @@ def run_epoch(model, data, optimizer):
     model.train()
     train_elbo = epoch_iter(model, traindata, optimizer)
 
-    model.eval()
-    val_elbo = epoch_iter(model, valdata, optimizer)
+    with torch.no_grad():
+        model.eval()
+        val_elbo = epoch_iter(model, valdata, optimizer)
 
     return train_elbo, val_elbo
 
