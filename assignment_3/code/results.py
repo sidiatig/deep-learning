@@ -9,7 +9,7 @@ def get_uri_db_pair():
     if all([uri, database]):
         return uri, database
     else:
-        raise ConnectionError('Couldn\'t find URI or database')
+        raise ConnectionError('Could not find URI or database')
 
 
 def get_experiment(id):
@@ -43,6 +43,3 @@ def plot_rec_kl_losses(id):
     plt.xlabel('Epochs')
     plt.tight_layout()
     plt.show()
-
-plot_elbo(7)
-plot_rec_kl_losses(7)
