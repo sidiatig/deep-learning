@@ -114,22 +114,26 @@ def epoch_iter(model, data, optimizer):
 
     Returns the average elbo for the complete epoch.
     """
-    average_epoch_elbo = 0
+    average_epoch_rec_loss = 0
+    average_epoch_kl = 0
 
     for imgs in data:
         imgs = imgs.to(device)
         rec_loss, kl = model(imgs.view(-1, IMG_PIXELS))
-        avg_elbo = rec_loss + kl
-        average_epoch_elbo += avg_elbo.item()
+
+        average_epoch_rec_loss += rec_loss.item()
+        average_epoch_kl += kl.item()
 
         if model.training:
+            avg_elbo = rec_loss + kl
             optimizer.zero_grad()
             avg_elbo.backward()
             optimizer.step()
 
-    average_epoch_elbo /= len(data)
+    average_epoch_rec_loss /= len(data)
+    average_epoch_kl /= len(data)
 
-    return average_epoch_elbo
+    return average_epoch_rec_loss, average_epoch_kl
 
 
 def run_epoch(model, data, optimizer):
@@ -139,13 +143,13 @@ def run_epoch(model, data, optimizer):
     traindata, valdata = data
 
     model.train()
-    train_elbo = epoch_iter(model, traindata, optimizer)
+    train_rec, train_kl = epoch_iter(model, traindata, optimizer)
 
     with torch.no_grad():
         model.eval()
-        val_elbo = epoch_iter(model, valdata, optimizer)
+        val_rec, val_kl = epoch_iter(model, valdata, optimizer)
 
-    return train_elbo, val_elbo
+    return train_rec, train_kl, val_rec, val_kl
 
 
 def save_elbo_plot(train_curve, val_curve, filename):
@@ -186,12 +190,17 @@ def main(epochs, zdim, _run):
             fname = 'samples_{:d}.png'.format(epoch)
             save_samples(model, fname)
 
-        elbos = run_epoch(model, data, optimizer)
-
-        train_elbo, val_elbo = elbos
+        losses = run_epoch(model, data, optimizer)
+        train_rec, train_kl, val_rec, val_kl = losses
+        train_elbo = train_rec + train_kl
+        val_elbo = val_rec + val_kl
         print(f"[Epoch {epoch}] train elbo: {train_elbo} val_elbo: {val_elbo}")
         _run.log_scalar('train_elbo', train_elbo, epoch)
         _run.log_scalar('val_elbo', val_elbo, epoch)
+        _run.log_scalar('train_rec', train_rec, epoch)
+        _run.log_scalar('train_kl', train_kl, epoch)
+        _run.log_scalar('val_rec', val_rec, epoch)
+        _run.log_scalar('val_kl', val_kl, epoch)
 
     # --------------------------------------------------------------------
     #  Add functionality to plot plot the learned data manifold after
