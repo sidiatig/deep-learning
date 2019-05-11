@@ -12,15 +12,15 @@ def get_uri_db_pair():
         raise ConnectionError('Could not find URI or database')
 
 
-def get_experiment(id):
+def get_experiment(exp_id):
     uri, database = get_uri_db_pair()
     loader = ExperimentLoader(mongo_uri=uri, db_name=database)
-    ex = loader.find_by_id(id)
+    ex = loader.find_by_id(exp_id)
     return ex
 
 
-def plot_elbo(id):
-    ex = get_experiment(id)
+def plot_elbo(exp_id):
+    ex = get_experiment(exp_id)
     train_elbo = ex.metrics['train_elbo']
     val_elbo = ex.metrics['val_elbo']
     plt.figure(figsize=(4.0, 3.0))
@@ -32,8 +32,8 @@ def plot_elbo(id):
     plt.show()
 
 
-def plot_rec_kl_losses(id):
-    ex = get_experiment(id)
+def plot_rec_kl_losses(exp_id):
+    ex = get_experiment(exp_id)
     train_rec = ex.metrics['train_rec']
     train_kl = ex.metrics['train_kl']
     plt.figure(figsize=(4.0, 3.0))
