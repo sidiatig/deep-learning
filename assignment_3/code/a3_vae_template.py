@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
+import numpy as np
+from scipy.stats import norm
 
 from datasets.bmnist import bmnist
 
@@ -25,6 +27,7 @@ IMG_HEIGHT = 28
 IMG_PIXELS = IMG_WIDTH * IMG_HEIGHT
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
 
 class Encoder(nn.Module):
     def __init__(self, hidden_dim=500, z_dim=20):
@@ -167,11 +170,35 @@ def save_elbo_plot(train_curve, val_curve, filename):
 def save_samples(model, fname, _run):
     samples, _ = model.sample(n_samples=16)
     samples = samples.detach().cpu()
-    grid = make_grid(samples.reshape(-1, 1, IMG_WIDTH, IMG_HEIGHT),
-                     nrow=4)
+    samples = samples.reshape(-1, 1, IMG_WIDTH, IMG_HEIGHT)
+
+    grid = make_grid(samples, nrow=4)[0]
     plt.cla()
-    plt.imshow(grid.permute(1, 2, 0).numpy())
+    plt.imshow(grid.numpy(), cmap='binary')
     plt.axis('off')
+    img_path = os.path.join(os.path.dirname(__file__), 'saved', fname)
+    plt.savefig(img_path)
+    _run.add_artifact(img_path, fname)
+    os.remove(img_path)
+
+
+@ex.capture
+def save_manifold(model, _run):
+    n_rows = 20
+    unit_coords = norm.ppf(np.linspace(start=0.05, stop=0.95, num=n_rows))
+    z1, z2 = np.meshgrid(unit_coords, unit_coords)
+    z = np.column_stack((z1.reshape(-1), z2.reshape(-1)))
+    z = torch.tensor(z, dtype=torch.float).to(device)
+
+    x = torch.sigmoid(model.decoder(z)).detach().cpu()
+    x = x.reshape(-1, 1, IMG_WIDTH, IMG_HEIGHT)
+
+    grid = make_grid(x, nrow=n_rows, padding=0)[0]
+    plt.cla()
+    plt.imshow(grid.numpy(), cmap='binary')
+    plt.axis('off')
+
+    fname = 'manifold.png'
     img_path = os.path.join(os.path.dirname(__file__), 'saved', fname)
     plt.savefig(img_path)
     _run.add_artifact(img_path, fname)
@@ -180,7 +207,9 @@ def save_samples(model, fname, _run):
 
 @ex.main
 def main(epochs, zdim, _run):
-    data = bmnist()[:2]  # ignore test split
+    # Take train and val sets
+    data = bmnist()[:2]
+
     model = VAE(z_dim=zdim).to(device)
     optimizer = torch.optim.Adam(model.parameters())
 
@@ -202,11 +231,8 @@ def main(epochs, zdim, _run):
         _run.log_scalar('val_rec', val_rec, epoch)
         _run.log_scalar('val_kl', val_kl, epoch)
 
-    # --------------------------------------------------------------------
-    #  Add functionality to plot plot the learned data manifold after
-    #  if required (i.e., if zdim == 2). You can use the make_grid
-    #  functionality that is already imported.
-    # --------------------------------------------------------------------
+    if zdim == 2:
+        save_manifold(model)
 
 
 if __name__ == "__main__":
@@ -218,9 +244,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # noinspection PyUnusedLocal
     @ex.config
     def config():
         epochs = args.epochs
-        zdim = args.epochs
+        zdim = args.zdim
 
     ex.run()

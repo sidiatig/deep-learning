@@ -43,3 +43,6 @@ def plot_rec_kl_losses(id):
     plt.xlabel('Epochs')
     plt.tight_layout()
     plt.show()
+
+plot_elbo(7)
+plot_rec_kl_losses(7)

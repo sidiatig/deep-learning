@@ -11,3 +11,4 @@
 source activate pytorch
 
 srun python -u a3_vae_template.py
+srun python -u a3_vae_template.py --zdim=2
