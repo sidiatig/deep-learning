@@ -264,8 +264,34 @@ In order to visualize the latent space in the regions of significant density in 
 \label{fig:manifold}
 \end{figure}
 
+\section{Generative Adversarial Networks}
 
+\subsection*{Question 2.1}
 
+The input of the generator is a noise sample from a prior distribution. The output is a vector in the data space. For the generator, the input is a vector in the data space, which might come from either the training data, or the generator. The output is a single number representing the probability that the input comes from the training data.
+
+\subsection*{Question 2.2}
+
+\begin{itemize}
+\item $\mathbb{E}_{p_{\text{data}}(\mathbf{x})}[\log D(X)]$ is the expected log-probability of a \textit{real} sample that the discriminator assigns to observations from the training data. By maximizing this term with respect to $D$, we make the discriminator to correctly recognize samples from the training term.
+\item $\mathbb{E}_{p_{\mathbf{z}}(\mathbf{z})}[\log (1-D(G(Z)))]$ is the expected log-probability of a \textit{fake} sample that the discriminator assigns to observations from the generator network. Minimizing this term with respect to $D$ allows the discriminator to detect images from the generator that are disparate from samples in the training data.
+\end{itemize}
+
+\subsection*{Question 2.3}
+
+Assuming that at convergence the generator has matched the data distribution, the discriminator has no better choice than to predict a probability of $\tfrac{1}{2}$ everywhere \cite{goodfellow2014generative}. The value of $V(D, G)$ at convergence is thus $\log\tfrac{1}{2} + \log\tfrac{1}{2} = -\log 4$.
+
+\subsection*{Question 2.4}
+
+Early on during training, the generator has not been trained enough to produce samples similar to those in the training data. In this case it is easier for the discriminator to learn to distinguish between real and fake samples, so the term $\log (1-D(G(Z)))$ will be close to zero no matter how good $G$ is, and too small gradients, if any, will be available to update the parameters of the generator.
+
+To solve this, the minimax game can be modified with the following equivalent objective:
+
+\begin{equation}
+\max_G \max_D \mathbb{E}_{p_{\text{data}}(\mathbf{x})}[\log D(X)] + \mathbb{E}_{p_{\mathbf{z}}(\mathbf{z})}[\log D(G(Z)]
+\end{equation}
+
+This objective is equivalent because we now find $G$ to maximize the probability that $D$ makes a mistake by identifying a fake sample as real. The advantage from the point of view of gradient-based learning is that the term $\log D(G(Z)$ will tend to $-\infty$ the more $D$ is a good discriminator and $G$ a bad generator, thus providing better gradients for updating $G$.
 
 
 
