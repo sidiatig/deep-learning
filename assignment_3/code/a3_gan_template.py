@@ -54,8 +54,10 @@ class Discriminator(nn.Module):
 
         self.layers = nn.Sequential(nn.Linear(IMG_PIXELS, 512),
                                     nn.LeakyReLU(0.2, inplace=True),
+                                    nn.Dropout(0.3),
                                     nn.Linear(512, 256),
                                     nn.LeakyReLU(0.2, inplace=True),
+                                    nn.Dropout(0.3),
                                     nn.Linear(256, 1))
 
     def forward(self, img):
@@ -72,10 +74,10 @@ def sample_generator(generator, n_samples):
 
 @ex.capture
 def save_samples(generator, fname, _run):
-    samples = sample_generator(generator, n_samples=16).detach().cpu()
+    samples = sample_generator(generator, n_samples=25).detach().cpu()
     samples = samples.reshape(-1, 1, IMG_WIDTH, IMG_HEIGHT) * 0.5 + 0.5
 
-    grid = make_grid(samples, nrow=4)[0]
+    grid = make_grid(samples, nrow=5)[0]
     plt.cla()
     plt.imshow(grid.numpy(), cmap='binary')
     plt.axis('off')
@@ -98,8 +100,7 @@ def train(dataloader, discriminator, generator, optimizer_g, optimizer_d, _run):
     n_epochs = args.n_epochs
 
     for epoch in range(1, n_epochs + 1):
-        # Save samples at beginning, 50% and 100% of training
-        if int(100 * epoch / n_epochs) in [int(100 / n_epochs), 25, 50, 100]:
+        if epoch == 1 or epoch % args.save_epochs == 0:
             fname = 'samples_{:d}.png'.format(epoch)
             save_samples(generator, fname)
 
@@ -111,6 +112,8 @@ def train(dataloader, discriminator, generator, optimizer_g, optimizer_d, _run):
             optimizer_d.zero_grad()
             pos_preds = discriminator(imgs)
             neg_preds = discriminator(samples)
+            # One-sided label smoothing
+            ones.uniform_(0.7, 1.2)
             loss_d = bce_loss(pos_preds, ones) + bce_loss(neg_preds, zeros)
             loss_d.backward()
             optimizer_d.step()
@@ -174,8 +177,8 @@ if __name__ == "__main__":
                         help='learning rate')
     parser.add_argument('--latent_dim', type=int, default=100,
                         help='dimensionality of the latent space')
-    parser.add_argument('--save_interval', type=int, default=500,
-                        help='save every SAVE_INTERVAL iterations')
+    parser.add_argument('--save_epochs', type=int, default=50,
+                        help='save samples every SAVE_EPOCHS epochs')
     parser.add_argument('--log_interval', type=int, default=50,
                         help='log every LOG_INTERVAL iterations')
     args = parser.parse_args()
