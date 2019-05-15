@@ -62,10 +62,17 @@ class Discriminator(nn.Module):
         return self.layers(img)
 
 
+def sample_generator(generator, n_samples):
+    """Obtain samples from the generator. The returned tensor is on device and
+    attached to the graph, so it has requires_grad=True """
+    z = torch.randn(n_samples, args.latent_dim).to(device)
+    samples = generator(z)
+    return samples
+
+
 @ex.capture
 def save_samples(generator, fname, _run):
-    z = torch.rand(16, args.latent_dim).to(device)
-    samples = generator(z).detach().cpu()
+    samples = sample_generator(generator, n_samples=16).detach().cpu()
     samples = samples.reshape(-1, 1, IMG_WIDTH, IMG_HEIGHT) * 0.5 + 0.5
 
     grid = make_grid(samples, nrow=4)[0]
@@ -97,26 +104,27 @@ def train(dataloader, discriminator, generator, optimizer_g, optimizer_d, _run):
             save_samples(generator, fname)
 
         for i, (imgs, _) in enumerate(dataloader):
-            imgs = imgs.reshape(args.batch_size, -1).to(device)
-
-            # Sample from generator
-            z = torch.rand(args.batch_size, args.latent_dim).to(device)
-            samples = generator(z).detach()
-
             # Train Discriminator
+            # -------------------
+            imgs = imgs.reshape(args.batch_size, -1).to(device)
+            samples = sample_generator(generator, args.batch_size).detach()
             optimizer_d.zero_grad()
             pos_preds = discriminator(imgs)
             neg_preds = discriminator(samples)
             loss_d = bce_loss(pos_preds, ones) + bce_loss(neg_preds, zeros)
             loss_d.backward()
+            optimizer_d.step()
+            # -------------------
 
             # Train Generator
-            z = torch.rand(args.batch_size, args.latent_dim).to(device)
-            samples = generator(z)
+            # -------------------
+            samples = sample_generator(generator, args.batch_size)
             optimizer_g.zero_grad()
             neg_preds = discriminator(samples)
             loss_g = bce_loss(neg_preds, ones)
             loss_g.backward()
+            optimizer_g.step()
+            # -------------------
 
             train_iters += 1
             avg_loss_d += loss_d.item() / args.log_interval
