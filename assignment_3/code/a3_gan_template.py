@@ -4,100 +4,152 @@ import os
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
-from torchvision.utils import save_image
 from torchvision import datasets
+from torchvision.utils import make_grid
+import matplotlib.pyplot as plt
+
+from sacred import Experiment
+from sacred.observers import MongoObserver
+
+ex = Experiment()
+# Set up database logs
+uri = os.environ.get('MLAB_URI')
+database = os.environ.get('MLAB_DB')
+if all([uri, database]):
+    print(uri)
+    print(database)
+    ex.observers.append(MongoObserver.create(uri, database))
+
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+IMG_WIDTH = 28
+IMG_HEIGHT = 28
+IMG_PIXELS = IMG_WIDTH * IMG_HEIGHT
 
 
 class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
 
-        # Construct generator. You are free to experiment with your model,
-        # but the following is a good start:
-        #   Linear args.latent_dim -> 128
-        #   LeakyReLU(0.2)
-        #   Linear 128 -> 256
-        #   Bnorm
-        #   LeakyReLU(0.2)
-        #   Linear 256 -> 512
-        #   Bnorm
-        #   LeakyReLU(0.2)
-        #   Linear 512 -> 1024
-        #   Bnorm
-        #   LeakyReLU(0.2)
-        #   Linear 1024 -> 768
-        #   Output non-linearity
+        self.layers = nn.Sequential(nn.Linear(args.latent_dim, 128),
+                                    nn.LeakyReLU(0.2, inplace=True),
+                                    nn.Linear(128, 256),
+                                    nn.BatchNorm1d(256),
+                                    nn.LeakyReLU(0.2, inplace=True),
+                                    nn.Linear(256, 512),
+                                    nn.BatchNorm1d(512),
+                                    nn.LeakyReLU(0.2, inplace=True),
+                                    nn.Linear(512, 1024),
+                                    nn.BatchNorm1d(1024),
+                                    nn.LeakyReLU(0.2, inplace=True),
+                                    nn.Linear(1024, IMG_PIXELS),
+                                    nn.Tanh())
 
     def forward(self, z):
-        # Generate images from z
-        pass
+        return self.layers(z)
 
 
 class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
 
-        # Construct distriminator. You are free to experiment with your model,
-        # but the following is a good start:
-        #   Linear 784 -> 512
-        #   LeakyReLU(0.2)
-        #   Linear 512 -> 256
-        #   LeakyReLU(0.2)
-        #   Linear 256 -> 1
-        #   Output non-linearity
+        self.layers = nn.Sequential(nn.Linear(IMG_PIXELS, 512),
+                                    nn.LeakyReLU(0.2, inplace=True),
+                                    nn.Linear(512, 256),
+                                    nn.LeakyReLU(0.2, inplace=True),
+                                    nn.Linear(256, 1))
 
     def forward(self, img):
-        # return discriminator score for img
-        pass
+        return self.layers(img)
 
 
-def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
-    for epoch in range(args.n_epochs):
+@ex.capture
+def save_samples(generator, fname, _run):
+    z = torch.rand(16, args.latent_dim).to(device)
+    samples = generator(z).detach().cpu()
+    samples = samples.reshape(-1, 1, IMG_WIDTH, IMG_HEIGHT) * 0.5 + 0.5
+
+    grid = make_grid(samples, nrow=4)[0]
+    plt.cla()
+    plt.imshow(grid.numpy(), cmap='binary')
+    plt.axis('off')
+    img_path = os.path.join(os.path.dirname(__file__), 'saved', fname)
+    plt.savefig(img_path)
+    _run.add_artifact(img_path, fname)
+    os.remove(img_path)
+
+
+@ex.capture
+def train(dataloader, discriminator, generator, optimizer_g, optimizer_d, _run):
+    ones = torch.ones((args.batch_size, 1), dtype=torch.float32).to(device)
+    zeros = torch.zeros((args.batch_size, 1), dtype=torch.float32).to(device)
+    bce_loss = nn.BCEWithLogitsLoss()
+
+    train_iters = 0
+    avg_loss_d = 0
+    avg_loss_g = 0
+    log = 'epoch [{:d}/{:d}] batch [{:d}/{:d}] loss_d: {:.6f} loss_g: {:.6f}'
+    n_epochs = args.n_epochs
+
+    for epoch in range(n_epochs):
+        # Save samples at beginning, 50% and 100% of training
+        if int(100 * epoch / n_epochs) in [int(100 / n_epochs), 50, 100]:
+            fname = 'samples_{:d}.png'.format(epoch)
+            save_samples(generator, fname)
+
         for i, (imgs, _) in enumerate(dataloader):
+            imgs = imgs.reshape(args.batch_size, -1).to(device)
 
-            imgs.cuda()
-
-            # Train Generator
-            # ---------------
+            # Sample from generator
+            z = torch.rand(args.batch_size, args.latent_dim).to(device)
+            samples = generator(z).detach()
 
             # Train Discriminator
-            # -------------------
-            optimizer_D.zero_grad()
+            optimizer_d.zero_grad()
+            pos_preds = discriminator(imgs)
+            neg_preds = discriminator(samples)
+            loss_d = bce_loss(pos_preds, ones) + bce_loss(neg_preds, zeros)
+            loss_d.backward()
 
-            # Save Images
-            # -----------
-            batches_done = epoch * len(dataloader) + i
-            if batches_done % args.save_interval == 0:
-                # You can use the function save_image(Tensor (shape Bx1x28x28),
-                # filename, number of rows, normalize) to save the generated
-                # images, e.g.:
-                # save_image(gen_imgs[:25],
-                #            'images/{}.png'.format(batches_done),
-                #            nrow=5, normalize=True)
-                pass
+            # Train Generator
+            z = torch.rand(args.batch_size, args.latent_dim).to(device)
+            samples = generator(z)
+            optimizer_g.zero_grad()
+            neg_preds = discriminator(samples)
+            loss_g = bce_loss(neg_preds, ones)
+            loss_g.backward()
+
+            train_iters += 1
+            avg_loss_d += loss_d.item() / args.log_interval
+            avg_loss_g += loss_g.item() / args.log_interval
+
+            if train_iters % args.log_interval == 0:
+                print(log.format(epoch + 1, n_epochs,
+                                 i + 1, len(dataloader),
+                                 avg_loss_d, avg_loss_g))
+                _run.log_scalar('loss_d', avg_loss_d, train_iters)
+                _run.log_scalar('loss_g', avg_loss_g, train_iters)
+                avg_loss_d = 0
+                avg_loss_g = 0
 
 
+@ex.main
 def main():
-    # Create output image directory
-    os.makedirs('images', exist_ok=True)
-
     # load data
     dataloader = torch.utils.data.DataLoader(
         datasets.MNIST('./data/mnist', train=True, download=True,
                        transform=transforms.Compose([
                            transforms.ToTensor(),
-                           transforms.Normalize((0.5, 0.5, 0.5),
-                                                (0.5, 0.5, 0.5))])),
-        batch_size=args.batch_size, shuffle=True)
+                           transforms.Normalize((0.5,), (0.5,))])),
+        batch_size=args.batch_size, shuffle=True, drop_last=True)
 
     # Initialize models and optimizers
-    generator = Generator()
-    discriminator = Discriminator()
-    optimizer_G = torch.optim.Adam(generator.parameters(), lr=args.lr)
-    optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=args.lr)
+    generator = Generator().to(device)
+    discriminator = Discriminator().to(device)
+    optimizer_g = torch.optim.Adam(generator.parameters(), lr=args.lr)
+    optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr)
 
     # Start training
-    train(dataloader, discriminator, generator, optimizer_G, optimizer_D)
+    train(dataloader, discriminator, generator, optimizer_g, optimizer_d)
 
     # You can save your generator here to re-use it to generate images for your
     # report, e.g.:
@@ -116,6 +168,8 @@ if __name__ == "__main__":
                         help='dimensionality of the latent space')
     parser.add_argument('--save_interval', type=int, default=500,
                         help='save every SAVE_INTERVAL iterations')
+    parser.add_argument('--log_interval', type=int, default=50,
+                        help='log every LOG_INTERVAL iterations')
     args = parser.parse_args()
 
-    main()
+    ex.run()
