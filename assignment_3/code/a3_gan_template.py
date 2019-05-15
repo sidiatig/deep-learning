@@ -90,9 +90,9 @@ def train(dataloader, discriminator, generator, optimizer_g, optimizer_d, _run):
     log = 'epoch [{:d}/{:d}] batch [{:d}/{:d}] loss_d: {:.6f} loss_g: {:.6f}'
     n_epochs = args.n_epochs
 
-    for epoch in range(n_epochs):
+    for epoch in range(1, n_epochs + 1):
         # Save samples at beginning, 50% and 100% of training
-        if int(100 * epoch / n_epochs) in [int(100 / n_epochs), 50, 100]:
+        if int(100 * epoch / n_epochs) in [int(100 / n_epochs), 25, 50, 100]:
             fname = 'samples_{:d}.png'.format(epoch)
             save_samples(generator, fname)
 
