@@ -1,5 +1,6 @@
 import argparse
 import os
+from datetime import datetime
 
 import torch
 import torch.nn as nn
@@ -144,14 +145,15 @@ def train(dataloader, discriminator, generator, optimizer_g, optimizer_d, _run):
 
 
 @ex.main
-def main():
-    # load data
+def main(timestamp):
+    # Load data
     dataloader = torch.utils.data.DataLoader(
         datasets.MNIST('./data/mnist', train=True, download=True,
                        transform=transforms.Compose([
                            transforms.ToTensor(),
                            transforms.Normalize((0.5,), (0.5,))])),
-        batch_size=args.batch_size, shuffle=True, drop_last=True)
+        batch_size=args.batch_size, shuffle=True, drop_last=True,
+        num_workers=1)
 
     # Initialize models and optimizers
     generator = Generator().to(device)
@@ -159,12 +161,20 @@ def main():
     optimizer_g = torch.optim.Adam(generator.parameters(), lr=args.lr)
     optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=args.lr)
 
-    # Start training
+    # Train GAN
     train(dataloader, discriminator, generator, optimizer_g, optimizer_d)
 
-    # You can save your generator here to re-use it to generate images for your
-    # report, e.g.:
-    # torch.save(generator.state_dict(), "mnist_generator.pt")
+    # Save generator
+    fname = str(timestamp) + '.pt'
+    model_path = os.path.join(os.path.dirname(__file__), 'saved', fname)
+    torch.save(generator.state_dict(), model_path)
+    print('Saved generator to {}'.format(model_path))
+
+
+# noinspection PyUnusedLocal
+@ex.config
+def config():
+    timestamp = int(datetime.now().timestamp())
 
 
 if __name__ == "__main__":
@@ -177,7 +187,7 @@ if __name__ == "__main__":
                         help='learning rate')
     parser.add_argument('--latent_dim', type=int, default=100,
                         help='dimensionality of the latent space')
-    parser.add_argument('--save_epochs', type=int, default=50,
+    parser.add_argument('--save_epochs', type=int, default=20,
                         help='save samples every SAVE_EPOCHS epochs')
     parser.add_argument('--log_interval', type=int, default=50,
                         help='log every LOG_INTERVAL iterations')
