@@ -65,10 +65,12 @@ class Discriminator(nn.Module):
         return self.layers(img)
 
 
-def sample_generator(generator, n_samples):
+def sample_generator(generator, n_samples, z=None):
     """Obtain samples from the generator. The returned tensor is on device and
     attached to the graph, so it has requires_grad=True """
-    z = torch.randn(n_samples, args.latent_dim).to(device)
+    if z is None:
+        z = torch.randn(n_samples, args.latent_dim).to(device)
+
     samples = generator(z)
     return samples
 
@@ -76,7 +78,7 @@ def sample_generator(generator, n_samples):
 @ex.capture
 def save_samples(generator, fname, _run):
     samples = sample_generator(generator, n_samples=25).detach().cpu()
-    samples = samples.reshape(-1, 1, IMG_WIDTH, IMG_HEIGHT) * 0.5 + 0.5
+    samples = samples.reshape(-1, 1, IMG_HEIGHT, IMG_WIDTH) * 0.5 + 0.5
 
     grid = make_grid(samples, nrow=5)[0]
     plt.cla()
@@ -171,14 +173,72 @@ def main(timestamp):
     print('Saved generator to {}'.format(model_path))
 
 
-# noinspection PyUnusedLocal
-@ex.config
-def config():
-    timestamp = int(datetime.now().timestamp())
+def load_generator(model_path):
+    generator = Generator()
+    generator.load_state_dict(torch.load(model_path, map_location='cpu'))
+    generator.eval()
+    return generator
+
+
+@ex.command
+def interpolate(model_path, steps=20, method='slerp'):
+    """Generate samples from an interpolation of two latent values"""
+    generator = load_generator(model_path)
+
+    torch.manual_seed(29)
+    z1 = torch.randn(1, args.latent_dim)
+    torch.manual_seed(6)
+    z2 = torch.randn(1, args.latent_dim)
+
+    n_images = steps + 2
+    coeffs = torch.linspace(0, 1, n_images).unsqueeze(dim=1)
+
+    if method == 'lerp':
+        z_interp = (1 - coeffs) * z1 + coeffs * z2
+    elif method == 'slerp':
+        angle = torch.acos(torch.cosine_similarity(z1, z2, dim=1))
+        sin_angle = torch.sin(angle)
+        z_interp = (torch.sin((1.0 - coeffs) * angle) / sin_angle * z1
+                    + torch.sin(coeffs * angle) / sin_angle * z2)
+    else:
+        raise ValueError(f'Unknown method {method}')
+
+    x = generator(z_interp).detach().cpu()
+    x = x.reshape(-1, 1, IMG_HEIGHT, IMG_WIDTH) * 0.5 + 0.5
+    grid = make_grid(x, nrow=n_images)[0]
+
+    plt.figure(figsize=(5.0, 1.0))
+    plt.imshow(grid.numpy(), cmap='binary')
+    plt.axis('off')
+    plt.tight_layout()
+    plt.show()
+
+
+@ex.command
+def explore(model_path, n_samples=20):
+    """Sample the generator with different random seeds.
+    Each sample is shown one after the other until n_samples are shown.
+    Use it to find the right sandom seed to sample a specific digit."""
+    generator = load_generator(model_path)
+
+    for i in range(n_samples):
+        torch.manual_seed(i)
+        sample = sample_generator(generator, n_samples=1).detach().cpu()
+        sample = sample.reshape(IMG_WIDTH, IMG_HEIGHT) * 0.5 + 0.5
+
+        plt.figure(figsize=(2.0, 2.0))
+        plt.imshow(sample.numpy(), cmap='binary')
+        plt.axis('off')
+        plt.title(f'Seed: {i:d}')
+        plt.show()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('--command', type=str, choices=['main',
+                                                        'interpolate',
+                                                        'explore'],
+                        default='main')
     parser.add_argument('--n_epochs', type=int, default=200,
                         help='number of epochs')
     parser.add_argument('--batch_size', type=int, default=64,
@@ -191,6 +251,14 @@ if __name__ == "__main__":
                         help='save samples every SAVE_EPOCHS epochs')
     parser.add_argument('--log_interval', type=int, default=50,
                         help='log every LOG_INTERVAL iterations')
+    parser.add_argument('--model_path', type=str, default=None,
+                        help='Path of a saved generator')
     args = parser.parse_args()
 
-    ex.run()
+    # noinspection PyUnusedLocal
+    @ex.config
+    def config():
+        timestamp = int(datetime.now().timestamp())
+        model_path = args.model_path
+
+    ex.run(args.command)
