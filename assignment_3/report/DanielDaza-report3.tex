@@ -190,11 +190,9 @@ The problem with obtaining this gradient is that the steps to calculate the loss
 
 \subsection*{Question 1.12}
 
-We implemented a VAE following the details outlined in the previous sections. We run experiments on a binary version of the MNIST dataset \cite{lecun1998gradient}, containing black and white images of size 28$\times$28. We use 50,000 images for training and 10,000 for validation.
+We implement the VAE and we run experiments on a binary version of the MNIST dataset \cite{lecun1998gradient}, containing black and white images of size 28$\times$28. We use 50,000 images for training and 10,000 for validation.
 
-The encoder of the VAE is a two layer multilayer perceptron (MLP) with 500 units in the first layer. The second layer produces two separate outputs, corresponding to the mean $\boldsymbol{\mu}_e$ and logarithm of the variance $\log\boldsymbol{\sigma}_e^2$ of the approximate posterior. We choose to calculate $\log\boldsymbol{\sigma}_e^2$ instead of $\boldsymbol{\sigma}_e$ to improve numerical stability.
-
-We use 1 sample of the latent variable. For the decoder we use an MLP with two layers, with 500 units in the hidden layer and 28$\times$28 $=$ 784 units in the output layer.
+The encoder of the VAE is a two layer multilayer perceptron (MLP) with 500 units in the first layer. The second layer produces two separate outputs, corresponding to the mean $\boldsymbol{\mu}_e$ and logarithm of the variance $\log\boldsymbol{\sigma}_e^2$ of the approximate posterior. We choose to calculate $\log\boldsymbol{\sigma}_e^2$ instead of $\boldsymbol{\sigma}_e$ to improve numerical stability. We use 1 sample of the latent variable. For the decoder we use an MLP with two layers, with 500 units in the hidden layer and 28$\times$28 $=$ 784 units in the output layer.
 
 We train the model using the Adam optimizer \cite{kingma2014adam} with a learning rate of 0.001, and a batch size of 128.
 
@@ -218,13 +216,13 @@ Previous works have observed that in a failure mode of VAEs, the decoder can lea
 \begin{figure}[t]
 \begin{subfigure}{0.49\textwidth}
 \centering
-\includegraphics[scale=0.7]{img/elbo.pdf}
+\includegraphics[scale=0.72]{img/elbo.pdf}
 \caption{}
 \label{fig:vae_curves_a}
 \end{subfigure}
 \begin{subfigure}{0.49\textwidth}
 \centering
-\includegraphics[scale=0.7]{img/recon_reg_losses.pdf}
+\includegraphics[scale=0.72]{img/recon_reg_losses.pdf}
 \caption{}
 \label{fig:vae_curves_b}
 \end{subfigure}
@@ -285,7 +283,7 @@ Assuming that at convergence the generator has matched the data distribution, th
 
 Early on during training, the generator has not been trained enough to produce samples similar to those in the training data. In this case it is easier for the discriminator to learn to distinguish between real and fake samples, so the term $\log (1-D(G(Z)))$ will be close to zero no matter how good $G$ is, and too small gradients, if any, will be available to update the parameters of the generator.
 
-To solve this, the minimax game can be modified with the following equivalent objective:
+To solve this, we can observe the equivalence of the minimax game with the following objective:
 
 \begin{equation}
 \max_G \max_D \mathbb{E}_{p_{\text{data}}(\mathbf{x})}[\log D(X)] + \mathbb{E}_{p_{\mathbf{z}}(\mathbf{z})}[\log D(G(Z)]
@@ -293,11 +291,59 @@ To solve this, the minimax game can be modified with the following equivalent ob
 
 This objective is equivalent because we now find $G$ to maximize the probability that $D$ makes a mistake by identifying a fake sample as real. The advantage from the point of view of gradient-based learning is that the term $\log D(G(Z)$ will tend to $-\infty$ the more $D$ is a good discriminator and $G$ a bad generator, thus providing better gradients for updating $G$.
 
+\subsection*{Question 2.5}
 
+\begin{figure}[t]
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.72]{img/gan_default_curves.pdf}
+\caption{}
+\end{subfigure}
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.72]{img/gan_improved_curves.pdf}
+\caption{}
+\end{subfigure}
+ \caption{Curves of the losses $\mathcal{L}_D$ for the discriminator, and $\mathcal{L}_G$ for the generator. (a) Using the default GAN loss and no dropout in the discriminator causes fake samples to be easily detected, with the loss of the discriminator decreasing as training progresses. (b) Adding dropout to the discriminator and including one-sided label smoothing improves the dynamics of training, and the final values are closer to the optima (shown with the dashed lines), corresponding to $\log 4$ for the discriminator, and $\log 2$ for the generator.}
+\label{fig:gan_curves}
+\end{figure}
 
+We implemented a GAN for the MNIST dataset. The latent variable has a dimension of 100, and a standard normal prior. The generator network is comprised by 5 fully-connected layers. All layers except the first use batch-normalization \cite{ioffe205batchnorm}. We use the Leaky ReLU activation with a slope of 0.2, and the $\tanh$ function for the output. We scale all images in the interval $[-1, 1]$ accordingly. The discriminator contains three fully-connected layers with Leaky ReLU activations with a slope of 0.2, and dropout of 0.3.
 
+We use a batch size of 64 and Adam, with a learning rate of 0.0002. We train the discriminator for one step, followed by one training step of the generator. We found one-sided label smoothing beneficial \cite{salimans2016improved}, with values  between 0.7 and 1.2, otherwise the generator would collapse to a few distinct samples and the loss of the discriminator would decrease consistently, as shown in Figure \ref{fig:gan_curves}.
 
+\subsection*{Question 2.6}
 
+\begin{figure}[t]
+\begin{subfigure}{0.32\textwidth}
+\centering
+\includegraphics[scale=0.27]{img/gan_sample_0}
+\end{subfigure}
+\begin{subfigure}{0.32\textwidth}
+\centering
+\includegraphics[scale=0.27]{img/gan_sample_40}
+\end{subfigure}
+\begin{subfigure}{0.32\textwidth}
+\centering
+\includegraphics[scale=0.27]{img/gan_sample_200}
+\end{subfigure}
+ \caption{Samples from the GAN, from left to right: before training, halfway through and after training. At the end of training, the samples from the generative model are qualitatively closer to the images in the training data, compared to the samples from the VAE.}
+\label{fig:gan_samples}
+\end{figure}
+
+In order to evaluate the generative capabilities of the GAN, we sample images during training, as shown in Figure \ref{fig:gan_samples}. We do this by randomly sampling the latent variable from a standard normal distribution, and passing the sample through the generator. The samples look smoother than in the VAE, because in the VAE we assumed the images to be binary, whereas the GAN models pixels in the interval $[-1, 1]$.
+
+\subsection*{Question 2.7}
+
+\begin{figure}[t]
+\centering
+\includegraphics[scale=0.7]{img/gan_lerp}\\
+\includegraphics[scale=0.7]{img/gan_slerp}
+\caption{Samples from an interpolation of values in the latent space, using linear (top row) and spherical (bottom) interpolation. This procedure shows that a continuous, linear interpolation in the latent space produces observations that appear to change smoothly.}
+\label{fig:gan_interp}
+\end{figure}
+
+By fixing the random seed at certain values, we obtain values of the latent variable that the generator maps to a specific digit. This allows us to interpolate between two samples from the generator, by interpolating between the corresponding values of the latent variable. We carry out this procedure using linear interpolation, as well as spherical interpolation across a great circle \cite{shoemake1985animating}, which in some cases can produce qualitatively better samples \cite{white2016sampling}. The results are shown in Figure \ref{fig:gan_interp}. We can see that the GAN enables a continuous interpolation between samples. In our experiments we did not observe a significant difference between linear and spherical interpolation.
 
 
 
