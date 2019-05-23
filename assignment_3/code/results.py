@@ -72,7 +72,24 @@ def plot_gan_curves(exp_id, plot_optima=False):
     plt.show()
 
 
+def plot_nf_curves(exp_id):
+    ex = get_experiment(exp_id)
+    train_bpd = ex.metrics['train_bpd']
+    val_bpd = ex.metrics['val_pbd']
+    plt.figure(figsize=(5.4, 3.0))
+    plt.plot(train_bpd, label='train')
+    plt.plot(val_bpd, label='val')
+
+    plt.legend(loc='upper right')
+    plt.xlabel('Epochs')
+    plt.ylabel('bpd')
+    plt.tight_layout()
+    plt.grid()
+    plt.show()
+
+
 # plot_elbo(7)
 # plot_rec_kl_losses(7)
 # plot_gan_curves(12)
 # plot_gan_curves(14, plot_optima=True)
+plot_nf_curves(32)

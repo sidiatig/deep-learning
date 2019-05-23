@@ -1,5 +1,5 @@
 import argparse
-
+from datetime import datetime
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
@@ -60,7 +60,7 @@ def get_mask():
 
 
 class Coupling(torch.nn.Module):
-    def __init__(self, c_in, mask, n_hidden=1024):
+    def __init__(self, c_in, mask, n_hidden=1024, mean_only=False):
         super().__init__()
         self.n_hidden = n_hidden
 
@@ -194,6 +194,7 @@ class Model(nn.Module):
         ldj = torch.zeros(z.size(0)).to(device)
 
         z, ldj = self.flow(z, ldj, reverse=True)
+        z, ldj = self.logit_normalize(z, ldj, reverse=True)
 
         return z
 
@@ -220,7 +221,7 @@ def epoch_iter(model, data, optimizer):
         if model.training:
             optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
             optimizer.step()
 
     avg_bpd /= len(data)
@@ -259,7 +260,7 @@ def save_samples(model, fname, _run):
 
 
 @ex.main
-def main(epochs, _run):
+def main(epochs, timestamp, _run):
     data = mnist()[:2]  # ignore test split
 
     model = Model(shape=[IMG_PIXELS]).to(device)
@@ -280,6 +281,12 @@ def main(epochs, _run):
         _run.log_scalar('train_bpd', train_bpd, epoch)
         _run.log_scalar('val_pbd', val_bpd, epoch)
 
+    # Save model
+    fname = str(timestamp) + '.pt'
+    model_path = os.path.join(os.path.dirname(__file__), 'saved', fname)
+    torch.save(model.state_dict(), model_path)
+    print('Saved model to {}'.format(model_path))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -292,5 +299,6 @@ if __name__ == "__main__":
     @ex.config
     def config():
         epochs = args.epochs
+        timestamp = int(datetime.now().timestamp())
 
     ex.run()
