@@ -168,18 +168,21 @@ def save_elbo_plot(train_curve, val_curve, filename):
 
 @ex.capture
 def save_samples(model, fname, _run):
-    samples, _ = model.sample(n_samples=16)
-    samples = samples.detach().cpu()
-    samples = samples.reshape(-1, 1, IMG_WIDTH, IMG_HEIGHT)
+    samples, means = model.sample(n_samples=16)
 
-    grid = make_grid(samples, nrow=4)[0]
-    plt.cla()
-    plt.imshow(grid.numpy(), cmap='binary')
-    plt.axis('off')
-    img_path = os.path.join(os.path.dirname(__file__), 'saved', fname)
-    plt.savefig(img_path)
-    _run.add_artifact(img_path, fname)
-    os.remove(img_path)
+    for data, label in zip((samples, means), ('samples', 'means')):
+        data = data.detach().cpu()
+        data = data.reshape(-1, 1, IMG_WIDTH, IMG_HEIGHT)
+
+        grid = make_grid(data, nrow=4)[0]
+        plt.cla()
+        plt.imshow(grid.numpy(), cmap='binary')
+        plt.axis('off')
+        img_fname = label + '_' + fname
+        img_path = os.path.join(os.path.dirname(__file__), 'saved', img_fname)
+        plt.savefig(img_path)
+        _run.add_artifact(img_path, fname)
+        os.remove(img_path)
 
 
 @ex.capture
@@ -216,7 +219,7 @@ def main(epochs, zdim, _run):
     for epoch in range(1, epochs + 1):
         # Save samples at beginning, 50% and 100% of training
         if int(100 * epoch/epochs) in [int(100/epochs), 50, 100]:
-            fname = 'samples_{:d}.png'.format(epoch)
+            fname = 'vae_{:d}.png'.format(epoch)
             save_samples(model, fname)
 
         losses = run_epoch(model, data, optimizer)
