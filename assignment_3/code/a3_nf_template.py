@@ -9,13 +9,32 @@ from datasets.mnist import mnist
 import os
 from torchvision.utils import make_grid
 
+from sacred import Experiment
+from sacred.observers import MongoObserver
+
+ex = Experiment()
+# Set up database logs
+uri = os.environ.get('MLAB_URI')
+database = os.environ.get('MLAB_DB')
+if all([uri, database]):
+    print(uri)
+    print(database)
+    ex.observers.append(MongoObserver.create(uri, database))
+
+IMG_WIDTH = 28
+IMG_HEIGHT = 28
+IMG_PIXELS = IMG_WIDTH * IMG_HEIGHT
+
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
 
 def log_prior(x):
     """
     Compute the elementwise log probability of a standard Gaussian, i.e.
     N(x | mu=0, sigma=1).
     """
-    raise NotImplementedError
+    logp = -0.5 * ((x ** 2) - np.log(2.0 * np.pi))
+
     return logp
 
 
@@ -23,10 +42,7 @@ def sample_prior(size):
     """
     Sample from a standard Gaussian.
     """
-    raise NotImplementedError
-
-    if torch.cuda.is_available():
-        sample = sample.cuda()
+    sample = torch.randn(size)
 
     return sample
 
@@ -55,9 +71,11 @@ class Coupling(torch.nn.Module):
         # Create shared architecture to generate both the translation and
         # scale variables.
         # Suggestion: Linear ReLU Linear ReLU Linear.
-        self.nn = torch.nn.Sequential(
-            None
-            )
+        self.nn = torch.nn.Sequential(nn.Linear(c_in, n_hidden),
+                                      nn.ReLU(),
+                                      nn.Linear(n_hidden, n_hidden),
+                                      nn.ReLU(),
+                                      nn.Linear(n_hidden, 2 * c_in))
 
         # The nn should be initialized such that the weights of the last layer
         # is zero, so that its initial transform is identity.
@@ -73,11 +91,18 @@ class Coupling(torch.nn.Module):
         # NOTE: For stability, it is advised to model the scale via:
         # log_scale = tanh(h), where h is the scale-output
         # from the NN.
+        mask = self.mask
+        neg_mask = 1 - mask
+        loc_scale = self.nn(z * mask)
+        loc, log_scale = torch.chunk(loc_scale, chunks=2, dim=1)
+        log_scale = torch.tanh(log_scale)
 
         if not reverse:
-            raise NotImplementedError
+            z = mask * z + neg_mask * (z * torch.exp(log_scale) + loc)
+            ldj += (neg_mask * log_scale).sum(dim=1)
         else:
-            raise NotImplementedError
+            z = mask * z + neg_mask * (z - loc) * torch.exp(-log_scale)
+            ldj += (neg_mask * -log_scale).sum(dim=1)
 
         return z, ldj
 
@@ -156,8 +181,8 @@ class Model(nn.Module):
         z, ldj = self.flow(z, ldj)
 
         # Compute log_pz and log_px per example
-
-        raise NotImplementedError
+        log_pz = log_prior(z).sum(dim=1)
+        log_px = log_pz + ldj
 
         return log_px
 
@@ -169,7 +194,7 @@ class Model(nn.Module):
         z = sample_prior((n_samples,) + self.flow.z_shape)
         ldj = torch.zeros(z.size(0), device=z.device)
 
-        raise NotImplementedError
+        z, ldj = self.flow(z, ldj, reverse=True)
 
         return z
 
@@ -183,8 +208,22 @@ def epoch_iter(model, data, optimizer):
     log_2 likelihood per dimension) averaged over the complete epoch.
     """
 
-    avg_bpd = None
+    avg_bpd = 0
 
+    for imgs, labels in data:
+        imgs = imgs.to(device)
+        log_px = model(imgs)
+        loss = -log_px.mean()
+
+        bpd = loss.item() / (np.log(2) * IMG_PIXELS)
+        avg_bpd += bpd
+
+        if model.training:
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+    avg_bpd /= len(data)
     return avg_bpd
 
 
@@ -198,50 +237,48 @@ def run_epoch(model, data, optimizer):
     train_bpd = epoch_iter(model, traindata, optimizer)
 
     model.eval()
-    val_bpd = epoch_iter(model, valdata, optimizer)
+    with torch.no_grad():
+        val_bpd = epoch_iter(model, valdata, optimizer)
 
     return train_bpd, val_bpd
 
 
-def save_bpd_plot(train_curve, val_curve, filename):
-    plt.figure(figsize=(12, 6))
-    plt.plot(train_curve, label='train bpd')
-    plt.plot(val_curve, label='validation bpd')
-    plt.legend()
-    plt.xlabel('epochs')
-    plt.ylabel('bpd')
-    plt.tight_layout()
-    plt.savefig(filename)
+@ex.capture
+def save_samples(model, fname, _run):
+    samples = model.sample(n_samples=16).detach().cpu()
+    samples = samples.reshape(-1, 1, IMG_WIDTH, IMG_HEIGHT)
+    grid = make_grid(samples, nrow=4)[0]
+
+    plt.cla()
+    plt.imshow(grid.numpy(), cmap='binary')
+    plt.axis('off')
+    img_path = os.path.join(os.path.dirname(__file__), 'saved', fname)
+    plt.savefig(img_path)
+    _run.add_artifact(img_path, fname)
+    os.remove(img_path)
 
 
-def main():
+@ex.main
+def main(epochs, _run):
     data = mnist()[:2]  # ignore test split
 
-    model = Model(shape=[784])
-
-    if torch.cuda.is_available():
-        model = model.cuda()
+    model = Model(shape=[IMG_PIXELS]).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-    os.makedirs('images_nfs', exist_ok=True)
+    for epoch in range(1, epochs + 1):
+        # Save samples at beginning, 50% and 100% of training
+        if int(100 * epoch / epochs) in [int(100 / epochs), 50, 100]:
+            fname = 'nf_{:d}.png'.format(epoch)
+            save_samples(model, fname)
 
-    train_curve, val_curve = [], []
-    for epoch in range(ARGS.epochs):
         bpds = run_epoch(model, data, optimizer)
         train_bpd, val_bpd = bpds
-        train_curve.append(train_bpd)
-        val_curve.append(val_bpd)
+        
         print("[Epoch {epoch}] train bpd: {train_bpd} val_bpd: {val_bpd}".format(
             epoch=epoch, train_bpd=train_bpd, val_bpd=val_bpd))
-
-        # --------------------------------------------------------------------
-        #  Add functionality to plot samples from model during training.
-        #  You can use the make_grid functionality that is already imported.
-        #  Save grid to images_nfs/
-        # --------------------------------------------------------------------
-
-    save_bpd_plot(train_curve, val_curve, 'nfs_bpd.pdf')
+        _run.log_scalar('train_bpd', train_bpd, epoch)
+        _run.log_scalar('val_pbd', val_bpd, epoch)
 
 
 if __name__ == "__main__":
@@ -249,6 +286,11 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', default=40, type=int,
                         help='max number of epochs')
 
-    ARGS = parser.parse_args()
+    args = parser.parse_args()
 
-    main()
+    # noinspection PyUnusedLocal
+    @ex.config
+    def config():
+        epochs = args.epochs
+
+    ex.run()
