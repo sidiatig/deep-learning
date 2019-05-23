@@ -181,7 +181,7 @@ def save_samples(model, fname, _run):
         img_fname = label + '_' + fname
         img_path = os.path.join(os.path.dirname(__file__), 'saved', img_fname)
         plt.savefig(img_path)
-        _run.add_artifact(img_path, fname)
+        _run.add_artifact(img_path, img_fname)
         os.remove(img_path)
 
 
