@@ -70,11 +70,17 @@ class Coupling(torch.nn.Module):
         # Create shared architecture to generate both the translation and
         # scale variables.
         # Suggestion: Linear ReLU Linear ReLU Linear.
+        if mean_only:
+            out_features = c_in
+        else:
+            out_features = 2
+
+        self.mean_only = mean_only
         self.nn = torch.nn.Sequential(nn.Linear(c_in, n_hidden),
                                       nn.ReLU(),
                                       nn.Linear(n_hidden, n_hidden),
                                       nn.ReLU(),
-                                      nn.Linear(n_hidden, 2 * c_in))
+                                      nn.Linear(n_hidden, out_features))
 
         # The nn should be initialized such that the weights of the last layer
         # is zero, so that its initial transform is identity.
@@ -93,15 +99,24 @@ class Coupling(torch.nn.Module):
         mask = self.mask
         neg_mask = 1 - mask
         loc_scale = self.nn(z * mask)
-        loc, log_scale = torch.chunk(loc_scale, chunks=2, dim=1)
-        log_scale = torch.tanh(log_scale)
 
-        if not reverse:
-            z = mask * z + neg_mask * (z * torch.exp(log_scale) + loc)
-            ldj += (neg_mask * log_scale).sum(dim=1)
+        if self.mean_only:
+            loc = loc_scale
+
+            if not reverse:
+                z = mask * z + neg_mask * (z + loc)
+            else:
+                z = mask * z + neg_mask * (z - loc)
         else:
-            z = mask * z + neg_mask * (z - loc) * torch.exp(-log_scale)
-            ldj += (neg_mask * -log_scale).sum(dim=1)
+            loc, log_scale = torch.chunk(loc_scale, chunks=2, dim=1)
+            log_scale = torch.tanh(log_scale)
+
+            if not reverse:
+                z = mask * z + neg_mask * (z * torch.exp(log_scale) + loc)
+                ldj += (neg_mask * log_scale).sum(dim=1)
+            else:
+                z = mask * z + neg_mask * (z - loc) * torch.exp(-log_scale)
+                ldj += (neg_mask * -log_scale).sum(dim=1)
 
         return z, ldj
 
