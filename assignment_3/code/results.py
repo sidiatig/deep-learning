@@ -76,7 +76,7 @@ def plot_nf_curves(exp_id):
     ex = get_experiment(exp_id)
     train_bpd = ex.metrics['train_bpd']
     val_bpd = ex.metrics['val_pbd']
-    plt.figure(figsize=(5.4, 3.0))
+    plt.figure(figsize=(3.7, 2.7))
     plt.plot(train_bpd, label='train')
     plt.plot(val_bpd, label='val')
 
@@ -92,4 +92,5 @@ def plot_nf_curves(exp_id):
 # plot_rec_kl_losses(7)
 # plot_gan_curves(12)
 # plot_gan_curves(14, plot_optima=True)
-plot_nf_curves(32)
+# plot_nf_curves(32)
+# plot_nf_curves(33)
