@@ -3,7 +3,6 @@ import argparse
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
-import torch.nn.functional as F
 import numpy as np
 from datasets.mnist import mnist
 import os
@@ -33,7 +32,7 @@ def log_prior(x):
     Compute the elementwise log probability of a standard Gaussian, i.e.
     N(x | mu=0, sigma=1).
     """
-    logp = -0.5 * ((x ** 2) - np.log(2.0 * np.pi))
+    logp = -0.5 * ((x ** 2) + np.log(2.0 * np.pi))
 
     return logp
 
@@ -191,8 +190,8 @@ class Model(nn.Module):
         Sample n_samples from the model. Sample from prior and create ldj.
         Then invert the flow and invert the logit_normalize.
         """
-        z = sample_prior((n_samples,) + self.flow.z_shape)
-        ldj = torch.zeros(z.size(0), device=z.device)
+        z = sample_prior((n_samples,) + self.flow.z_shape).to(device)
+        ldj = torch.zeros(z.size(0)).to(device)
 
         z, ldj = self.flow(z, ldj, reverse=True)
 
@@ -221,6 +220,7 @@ def epoch_iter(model, data, optimizer):
         if model.training:
             optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
             optimizer.step()
 
     avg_bpd /= len(data)
@@ -247,7 +247,7 @@ def run_epoch(model, data, optimizer):
 def save_samples(model, fname, _run):
     samples = model.sample(n_samples=16).detach().cpu()
     samples = samples.reshape(-1, 1, IMG_WIDTH, IMG_HEIGHT)
-    grid = make_grid(samples, nrow=4)[0]
+    grid = make_grid(samples, nrow=4, normalize=True)[0]
 
     plt.cla()
     plt.imshow(grid.numpy(), cmap='binary')
