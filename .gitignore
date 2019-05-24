@@ -131,7 +131,6 @@ dmypy.json
 *.bbl
 *.blg
 *.log
-*report*.pdf
 
 # Data folders and files
 cifar-10-batches-py/

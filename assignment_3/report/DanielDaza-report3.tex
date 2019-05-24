@@ -31,6 +31,8 @@
 \usepackage{makecell}
 \usepackage{subcaption}
 \usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algorithmic}
 
 \newcommand{\pd}[2]{\frac{\partial #1}{\partial #2}}
 \newcommand{\nl}{\newline}
@@ -57,7 +59,7 @@
 \maketitle
 
 \begin{abstract}
--
+In this work we explore three generative models used in deep learning: Variational Autoencoders, Generative Adversarial Networks, and Normalizing Flows. We discuss their theoretical properties and implementation. We run experiments to evaluate the performance of these models on image data, and we discuss their differences qualitatively and from the point of view of generative modeling.
 \end{abstract}
 
 
@@ -66,7 +68,7 @@
 \subsection*{Question 1.1}
 
 \begin{enumerate}
-\item Both the AE and VAE can be used to find a code underlying an observation. Ideally, this code should serve as a compressed representation of the input that contains the right amount of information about it, finding a balance that ignores irrelevant details, and keeps meaningful features. In this sense, the models are not different. However, the VAE is a generative model that solves a problem of statistical inference, and it enables the code to have a probabilistic interpretation. For some applications, this can be part of the main function, making it different from the AE. An example of this use is the Bayesian Skipgram \cite{bravzinskas2017embedding}, where words are embedded as probability distributions that capture uncertainty in the representation. This allows to represent ambiguous words with distributions of high variance, and viceversa; and to compute similarities between words via the KL divergence. This would not be possible with the AE, where the code is deterministic and does not have the ability to represent uncertainty.
+\item An Autoencoder (AE) and a Variational Autoencoder (VAE) can be used to find a code underlying an observation. Ideally, this code should serve as a compressed representation of the input that contains the right amount of information about it, finding a balance that ignores irrelevant details, and keeps meaningful features. In this sense, the models are not different. However, unlike the AE, the VAE is a generative model that models the probability density of an observation, while solving a problem of statistical inference. The VAE also allows the code to have a probabilistic interpretation. For some applications, this can be part of the main function, making it different from the AE. An example of this use is the Bayesian Skipgram \cite{bravzinskas2017embedding}, where words are embedded as probability distributions that capture uncertainty in the representation. This allows to represent ambiguous words with distributions of high variance, and viceversa; and to compute similarities between words via the KL divergence. This would not be possible with the AE, where the code is deterministic and does not have the ability to represent uncertainty.
 
 \item The AE is not generative, because it does not model the data-generating distribution, either explicitly or implicitly. Instead, it finds a deterministic map $\mathbf{z} = f(\mathbf{x})$ for the encoder, and $\mathbf{x} = g(\mathbf{z})$ for the decoder. These functions do not have a probabilistic interpretation, therefore they do not allow for the calculation of likelihoods or expectations.
 
@@ -107,7 +109,7 @@ with $\mathbf{z}_i\sim\mathcal{N}(0, \mathbf{I}_D)$.
 \item[(a)] The smallest KL divergence is obtained when the two distributions are the same. Therefore, if $\mu_q = 0$ and $\sigma_q=1$, $D_{\text{KL}}(q\Vert p) = 0$.
 From the definition of the KL divergence, we can see that if for some $x$, $p(x)\rightarrow 0$ and $q(x)>>0$, then $q(x)/p(x)\rightarrow\infty$. We can then make $D_{\text{KL}}(q\Vert p)$ large by letting $\mu\rightarrow\infty$ and $\sigma_q = \mu_q$, so that $q(x)$ assigns high probability to regions where $p(x)$ assigns low probability.
 
-\item[(b)] The KL divergence between a standard prior and a multivariate Gaussian can be found in the original publication \cite{kingma2014vae}. In the univariate case we obtain:
+\item[(b)] The KL divergence between a standard prior and a Gaussian distribution with mean $\mu_q$ and variance $\sigma_q^2$ in the univariate case is given by the following expression:
 \begin{equation*}
 D_{\text{KL}}(q\Vert p) = \frac{1}{2}(\sigma_q^2 + \mu_q^2 - \log(\sigma_q^2) - 1)
 \end{equation*}
@@ -135,7 +137,7 @@ p(\mathbf{z}\vert\mathbf{x}) &= \frac{p(\mathbf{z})p(\mathbf{x}\vert\mathbf{z})}
 The integral in the denominator is not tractable, so we don't have direct access to the posterior.
 
 \subsection*{Question 1.8}
-When the lower bound is maximized, this causes the log-probability to increase, and the KL divergence between the approximate and true posteriors to decrease. This means that the model assigns higher probability to the observations, while improving the approximation $q(\mathbf{z}\vert\mathbf{x})$ to be closer to the true posterior $p(\mathbf{z}\vert\mathbf{x})$. This circumvents the problem of an intractable posterior because if the approximate and true posteriors match, maximizing the lower bound will directly maximize the log-probability.
+When the lower bound is maximized, the log-probability increases and the KL divergence between the approximate and true posteriors decreases. This means that the model assigns a higher probability density to the observations, while improving $q(\mathbf{z}\vert\mathbf{x})$ as a better approximation of the true posterior $p(\mathbf{z}\vert\mathbf{x})$. This circumvents the problem of an intractable posterior because if the approximate and true posteriors match, the objective function being maximized gets closer to the log-probability.
 
 \subsection*{Question 1.9}
 
@@ -144,13 +146,13 @@ If we only use one sample of $\mathbf{z}$, then we have the following loss for a
 -\log p_\theta(\mathbf{x}\vert Z) + D_{\text{KL}}(q_\phi(Z\vert\mathbf{x})\Vert p(Z))
 \end{equation*}
 
-To minimize the first term, the model must assign a high probability to the observation $\mathbf{z}$ given the latent variable. If the decoder can use a sample of the latent variable and produce a reconstruction close to the observation, this will mean that the observation is likely under the model. For this reason this loss is also known as the reconstruction loss.
+To minimize the first term, the model must assign a high density to the observation $\mathbf{z}$ given the latent variable. If the decoder can use a sample of the latent variable and produce a reconstruction close to the observation, this will mean that the observation is likely under the model. For this reason this loss is also known as the reconstruction loss.
 
 To minimize the second term, the KL divergence between the prior and the approximate posterior must be low. This enforces a constraint in the parameters of the encoder, such that they are free to change in order to create a useful mapping from the observation to the latent variable, but not so much as to deviate from a predefined structure determined by the prior distribution. This term thus acts as a regularizer of the parameters of the model.
 
 \subsection*{Question 1.10}
 
-In the following we will omit the subscript in $\mathbf{x}_n$ as, we will specify the loss for a single sample.
+In the following we will omit the subscript in $\mathbf{x}_n$, as we will specify the loss for a single sample.
 
 The first step to calculate the loss is to obtain samples of the latent variable from the encoder, to estimate the reconstruction loss. This step comprises a forward pass through the decoder with the observation $\mathbf{x}$ as an input, and a step where $L$ samples of $\mathbf{z}$ are drawn:
 \begin{align*}
@@ -186,11 +188,11 @@ To calculate the regularization term, we can make use of the closed form express
 
 The gradient of the loss with respect to the variational parameters $\phi$ is required because it contains the information required to update the parameters of the encoder. The encoder influences the loss through the reconstruction, as samples from the approximate posterior are required to obtain the reconstructions. It also affects the loss through the regularization term. Therefore, if we want to optimize the VAE objective, we need to compute $\nabla\mathcal{L}_\phi$.
 
-The problem with obtaining this gradient is that the steps to calculate the loss involve sampling from a probability distribution parameterized by the encoder, which is an operation that is not differentiable with respect to the parameters of the encoder. This can be solved with the reparameterization trick, which consists of obtaining a sample from a distribution that is not parameterized by the encoder, and passing it through a deterministic function such that the result is equivalent to sampling from the approximate posterior. This function is chosen so that it is differentiable with respect to $\phi$, so we can calculate the required gradients.
+The problem with obtaining this gradient is that the steps to calculate the loss involve sampling from a probability distribution parameterized by the encoder, an operation that is not differentiable with respect to the parameters of the encoder. This can be solved with the reparameterization trick, which consists of obtaining a sample from a distribution that is not parameterized by the encoder, and passing it through a deterministic function such that the result is equivalent to sampling from the approximate posterior. This function is chosen so that it is differentiable with respect to $\phi$, so we can calculate the required gradients.
 
 \subsection*{Question 1.12}
 
-We implement the VAE and we run experiments on a binary version of the MNIST dataset \cite{lecun1998gradient}, containing black and white images of size 28$\times$28. We use 50,000 images for training and 10,000 for validation.
+We run experiments on a binary version of the MNIST dataset \cite{lecun1998gradient}, containing black and white images of size 28$\times$28. We use 50,000 images for training and 10,000 for validation.
 
 The encoder of the VAE is a two layer multilayer perceptron (MLP) with 500 units in the first layer. The second layer produces two separate outputs, corresponding to the mean $\boldsymbol{\mu}_e$ and logarithm of the variance $\log\boldsymbol{\sigma}_e^2$ of the approximate posterior. We choose to calculate $\log\boldsymbol{\sigma}_e^2$ instead of $\boldsymbol{\sigma}_e$ to improve numerical stability. We use 1 sample of the latent variable. For the decoder we use an MLP with two layers, with 500 units in the hidden layer and 28$\times$28 $=$ 784 units in the output layer.
 
@@ -198,7 +200,7 @@ We train the model using the Adam optimizer \cite{kingma2014adam} with a learnin
 
 \subsection*{Question 1.13}
 
-The mean of the training data with binary images is 0.1306. If for a moment we disregard the effect of the KL divergence, we can estimate the reconstruction loss for a randomly initialized model as follows:
+The mean of the training data with binary images is 0.1306. If we disregard the effect of the KL divergence, we can estimate the reconstruction loss for a randomly initialized model as follows:
 
 \begin{align*}
 \sum_{m=1}^{784} \mathbf{x}^{(m)}\log\boldsymbol{\mu}_d^{(m)} + (1-\mathbf{x}^{(m)})\log(1 -\boldsymbol{\mu}_d^{(m)})
@@ -209,7 +211,7 @@ The mean of the training data with binary images is 0.1306. If for a moment we d
 
 Therefore, the values of the evidence lower bound (ELBO) during training should be below this value.
 
-We show the ELBO for the training and validation set in Figure \ref{fig:vae_curves_a}. As expected, the values are smaller than those of a randomly initialized model. The curves of the ELBO show that the training procedure effectively minimizes the loss in the training and validation sets, indicating that the likelihood of the data has increased under the generative model.
+We show the ELBO for the training and validation set in Figure \ref{fig:vae_curves_a}. As expected, the values are smaller than those of a randomly initialized model. The curves of the ELBO show that the training procedure effectively minimizes the loss in the training and validation sets, indicating that the likelihood function has increased under the generative model.
 
 Previous works have observed that in a failure mode of VAEs, the decoder can learn to ignore the latent variable, especially in cases where a flexible decoder can exploit dependencies in the output \cite{bowman2016gensentcontinuous}, such that the KL divergence term of the loss reduces to 0. However, since in our case we are using a model where pixels are independent of each other, this should not be a problem. To verify this, we also show in Figure \ref{fig:vae_curves_b} separately the reconstruction loss and the KL divergence. We observe that at the beginning of training the KL divergence starts at a low value and then increases, showing that the model is driving the approximate posterior away from the prior, which helps to encode meaningful information in the latent variable that the decoder uses to reduce the reconstruction loss.
 
@@ -232,22 +234,34 @@ Previous works have observed that in a failure mode of VAEs, the decoder can lea
 
 \subsection*{Question 1.14}
 
-We take samples from the model before training, halfway through and after training. We obtain these by following the generative procedure, that is, first we sample from the prior $p(\mathbf{z})$, and then we pass the sample $\mathbf{z}$ through the decoder to obtain the parameters of the Bernoulli distribution in pixel space, from which we sample the images. The results are shown in Figure \ref{fig:vae_samples}. We can see that at first the samples are completely random, but as training progresses they become more similar to the images in the training data. Some samples are clearly closer to real digits than others. The reason behind this is the fact the the latent space is continuous, and some samples of $\mathbf{z}$ from the prior might lie on regions that do not correspond to specific digits, but rather on regions in between.
+We take samples from the model before training, halfway through and after training. We obtain these by following the generative procedure, that is, first we sample from the prior $p(\mathbf{z})$, and then we pass the sample $\mathbf{z}$ through the decoder to obtain the parameters of the Bernoulli distribution in pixel space, from which we sample the images. The results are shown in Figure \ref{fig:vae_samples}. We can see that at first the samples are completely random, but as training progresses they become more similar to the images in the training data. Some samples are clearly closer to real digits than others. The reason behind this is the fact the the latent space is continuous, and some samples of $\mathbf{z}$ from the prior might lie on regions that do not correspond to specific digits, but rather to interpolations between digits.
 
 \begin{figure}[t]
 \begin{subfigure}{0.32\textwidth}
 \centering
-\includegraphics[scale=0.3]{img/vae_sample_0}
+\includegraphics[scale=0.25]{img/vae_mean_0}
 \end{subfigure}
 \begin{subfigure}{0.32\textwidth}
 \centering
-\includegraphics[scale=0.3]{img/vae_sample_20}
+\includegraphics[scale=0.25]{img/vae_mean_20}
 \end{subfigure}
 \begin{subfigure}{0.32\textwidth}
 \centering
-\includegraphics[scale=0.3]{img/vae_sample_40}
+\includegraphics[scale=0.25]{img/vae_mean_40}
+\end{subfigure}\\
+\begin{subfigure}{0.32\textwidth}
+\centering
+\includegraphics[scale=0.25]{img/vae_sample_0}
 \end{subfigure}
- \caption{Samples from the VAE, from left to right: before training, halfway through and after training. As training progresses, the samples increasingly resemble samples from the training data.}
+\begin{subfigure}{0.32\textwidth}
+\centering
+\includegraphics[scale=0.25]{img/vae_sample_20}
+\end{subfigure}
+\begin{subfigure}{0.32\textwidth}
+\centering
+\includegraphics[scale=0.25]{img/vae_sample_40}
+\end{subfigure}
+ \caption{Means (top row) and samples (bottom row) from the VAE, from left to right: before training, halfway through and after training. As training progresses, the samples increasingly resemble samples from the training data.}
 \label{fig:vae_samples}
 \end{figure}
 
@@ -257,7 +271,7 @@ In order to visualize the latent space in the regions of significant density in 
 
 \begin{figure}[t]
 \centering
-\includegraphics[scale=0.8]{img/manifold}
+\includegraphics[scale=0.5]{img/manifold}
 \caption{Data manifold learned by the VAE. Values in a grid of a 2-dimensional latent space are mapped by the decoder to the respective means of the Bernoulli distribution.}
 \label{fig:manifold}
 \end{figure}
@@ -304,7 +318,7 @@ This objective is equivalent because we now find $G$ to maximize the probability
 \includegraphics[scale=0.72]{img/gan_improved_curves.pdf}
 \caption{}
 \end{subfigure}
- \caption{Curves of the losses $\mathcal{L}_D$ for the discriminator, and $\mathcal{L}_G$ for the generator. (a) Using the default GAN loss and no dropout in the discriminator causes fake samples to be easily detected, with the loss of the discriminator decreasing as training progresses. (b) Adding dropout to the discriminator and including one-sided label smoothing improves the dynamics of training, and the final values are closer to the optima (shown with the dashed lines), corresponding to $\log 4$ for the discriminator, and $\log 2$ for the generator.}
+ \caption{Loss curves $\mathcal{L}_D$ for the discriminator, and $\mathcal{L}_G$ for the generator. (a) Using the default GAN loss and no dropout in the discriminator causes fake samples to be easily detected, with the loss of the discriminator decreasing as training progresses. (b) Adding dropout to the discriminator and including one-sided label smoothing improves the dynamics of training, and the final values are closer to the optima (shown with the dashed lines), corresponding to $\log 4$ for the discriminator, and $\log 2$ for the generator.}
 \label{fig:gan_curves}
 \end{figure}
 
@@ -343,28 +357,172 @@ In order to evaluate the generative capabilities of the GAN, we sample images du
 \label{fig:gan_interp}
 \end{figure}
 
-By fixing the random seed at certain values, we obtain values of the latent variable that the generator maps to a specific digit. This allows us to interpolate between two samples from the generator, by interpolating between the corresponding values of the latent variable. We carry out this procedure using linear interpolation, as well as spherical interpolation across a great circle \cite{shoemake1985animating}, which in some cases can produce qualitatively better samples \cite{white2016sampling}. The results are shown in Figure \ref{fig:gan_interp}. We can see that the GAN enables a continuous interpolation between samples. In our experiments we did not observe a significant difference between linear and spherical interpolation.
+By fixing the random seed at certain values, we obtain values of the latent variable that the generator maps to a specific digit. This allows us to interpolate between two samples from the generator, by interpolating between the corresponding values of the latent variable. We carry out this procedure using linear interpolation, as well as spherical interpolation across a great circle \cite{shoemake1985animating}, which in some cases can produce qualitatively better samples \cite{white2016sampling}. The results are shown in Figure \ref{fig:gan_interp}. We can see that the GAN enables a continuous interpolation between samples. In our experiments we did not observe a drastic difference between linear and spherical interpolation.
+
+\section{Generative Normalizing Flows}
+
+\subsection*{Question 3.1}
+
+Given an invertible mapping $f : \mathbb{R}^m \to \mathbb{R}^m$, the distribution $p(\mathbf{x})$, under a change of variable $\mathbf{z} = f(\mathbf{x})$, is given by
+
+\begin{equation*}
+p(\mathbf{x}) = p(\mathbf{z})\left\vert \det\frac{\partial f}{\partial\mathbf{z}} \right\vert
+\end{equation*}
+
+Where $\frac{\partial f}{\partial\mathbf{z}}$ is the $m\times m$ Jacobian matrix containing all pairwise derivatives between the elements of $f(\mathbf{z})$  and $\mathbf{z}$. If we apply this transformation $L$ times, we then obtain the following expression:
+
+\begin{equation}
+\log p(\mathbf{x}) = \log p(\mathbf{z}_0) + \sum_{l=1}^L \log \left\vert \det\frac{\partial f_l}{\partial\mathbf{z}_{l-1}} \right\vert
+\label{eq:normflow}
+\end{equation}
+
+\subsection*{Question 3.2}
+
+In order to compute equation \ref{eq:normflow}, we must be able to compute the determinant of the Jacobian. This means that the Jacobian has to be a square matrix, otherwise the determinant is not defined. This constrains the mapping $f : \mathbb{R}^m \to \mathbb{R}^n$ to the case where $m = n$, so that both $\mathbf{x}\in\mathbb{R}^m$ and $\mathbf{z}_i\in\mathbb{R}^m\ \forall i = 0, \dots, L$.
+
+Furthermore, from the logarithm in equation \ref{eq:normflow}, the determinant can not be zero. From the inverse function theorem, this constrains $f$ to be an invertible map, so that the determinant is nonzero.
+
+\subsection*{Question 3.3}
+
+Equation \ref{eq:normflow} involves the calculation of a Jacobian, which in general has a complexity of $O(m^3)$ per transformation. During backpropagation, the gradient of the Jacobian is required and the need for its inverse can make training unstable. This limits the flexibility with which we can choose invertible transformations to those that have a runtime complexity feasible for high dimensional problems, such as linear transformations that have linear complexity and do not require the inverse of the Jacobian \cite{rezende2015flows}.
+
+\subsection*{Question 3.4}
+
+Since we are interested in maximizing the log-probability that the model assigns to the data, having discrete observations might cause the continuous model to accumulate probability mass around discrete values, rather than finding a smoother distribution that resembles the true data distribution. To solve this problem we can dequantize the data so that it takes values across a continuous interval. This can be achieved by adding random noise to a data point. One way to solve this is by adding noise from a standard distribution, as suggested by Theis et al. (2015) \cite{theis2016evaluation}. Alternatively, the amount of noise added can be jointly learned as part of the optimization procedure, using a flow model for the noise itself \cite{ho2019flow}.
+
+\subsection*{Question 3.5}
+
+During training, we are interested in maximizing the log-likelihood. In this case the input is the training data, which is passed through the normalizing flows (NF). This allows to compute the required log-likelihood, using equation \ref{eq:normflow}. As an output we obtain the corresponding value of $\mathbf{z}$.
+
+During inference time (assuming this corresponds to sampling from the model), the procedure is the opposite: the input is a sample from a prior, $\mathbf{z}_0\sim p(\mathbf{z})$, that is then passed through the inverse of the flow to obtain a generated sample, which in this case is the output. 
+
+\subsection*{Question 3.6}
+
+The steps required to train a density estimation model with normalizing flows are shown in algorithm \ref{alg:denflow}. The algorithm uses stochastic gradient descent (SGD) to minimize the log-likelihood function using mini-batches. At each step the flow is calculated, as well as the log-determinant of the Jacobian.
+
+\begin{minipage}[t]{\textwidth}
+\centering
+\begin{minipage}[t]{0.45\textwidth}
+\begin{algorithm}[H]
+    \caption{Density estimation with NFs}
+    \label{alg:denflow}
+    \begin{algorithmic}
+    \STATE \textbf{Inputs:} Training data $\mathbf{X}$
+    \STATE \hspace{32pt} Prior $p(\mathbf{z})$
+	\STATE $\boldsymbol{\theta} \leftarrow$ Initialize parameters of $f_1, \dots, f_L$
+	\WHILE{not converged}
+        \STATE $\mathbf{x} \leftarrow \lbrace$Get minibatch from $\mathbf{X}\rbrace$
+        \STATE $\mathbf{h}_0 \leftarrow \mathbf{x}$
+        \STATE $\mathcal{L} \leftarrow 0$
+        \FOR{$l = 1, \dots, L$}
+			\STATE $\mathbf{z}_l \leftarrow f_l(\mathbf{h}_{l-1})$
+			\STATE $\mathcal{L} = \mathcal{L} + \log\left\vert \frac{\partial \mathbf{h}_l}{\partial \mathbf{z}_{l-1}}\right\vert$
+        \ENDFOR
+        \STATE $\mathcal{L} \leftarrow \mathcal{L} + \log p(\mathbf{z}_L)$
+        \STATE $\mathbf{g} \leftarrow \nabla_\theta\mathcal{L}$
+        \STATE Update $\boldsymbol{\theta}$ with $\mathbf{g}$
+	\ENDWHILE
+	\RETURN $\boldsymbol{\theta}$
+    \end{algorithmic}
+\end{algorithm}
+\end{minipage}
+\hspace{10pt}
+\begin{minipage}[t]{0.45\textwidth}
+\begin{algorithm}[H]
+    \caption{Sampling with NFs}
+    \label{alg:sampleflow}
+    \begin{algorithmic}
+    \STATE \textbf{Inputs:} Parameters $\boldsymbol{\theta}$ of $f_1, \dots f_L$
+    \STATE \hspace{32pt} Prior $p(\mathbf{z})$
+    \STATE $\mathbf{z}_0\sim p(\mathbf{z})$
+	\FOR{$l = 1, \dots, L$}
+		\STATE $\mathbf{z}_l \leftarrow f_l^{-1}(\mathbf{z}_{l-1})$
+	\ENDFOR
+	\RETURN $\mathbf{z}_L$
+    \end{algorithmic}
+\end{algorithm}
+\end{minipage}
+\vspace{10pt}
+\end{minipage}
+
+The steps for sampling from the model are shown in algorithm \ref{alg:sampleflow}. For this procedure we start from a sample from the prior distribution that is passed through the inverse flow.
+
+\subsection*{Question 3.7}
+
+We implemented a density estimation model based on non-volume preserving transformations \cite{dinh2017rnvp}. The model consists of a series of invertible functions where $d$ elements in the input are preserved, and the rest are transformed. If we denote the inputs of the transformation as $\mathbf{x}$ and the output as $\mathbf{y}$, the transformation is given by the following expressions:
+
+\begin{align*}
+\mathbf{y}_{1:d} &= \mathbf{x}_{1:d} \\
+\mathbf{y}_{d + 1:D} &= \mathbf{x}_{d + 1:D} \odot \exp\left( s(\mathbf{x}_{1:d}) \right) + t(\mathbf{x}_{1:d})
+\end{align*}
+
+In this case, the log-determinant of the Jacobian is $\sum_j s(\mathbf{x}_{1:d})_j$.
+
+A single application of this transformation is also known as a \textit{coupling layer}. We implement the translation and scale functions $t(\cdot)$ and $s(\cdot)$ with fully connected neural networks with three hidden layers and ReLU activations. The first two layers are shared between $t$ and $s$. For stability during training, we pass the output of the scale network through the $\tanh$ function before computing the exponential.
+
+We make use of pairs of coupling layers with complementary binary masks, so that pixels preserved in one coupling layer are modified in the next one. The final model is comprised by 4 pairs of coupling layers.
+
+The prior probability density of the last transformed value in the flow ($p(\mathbf{z}_L)$ in algorithm \ref{alg:denflow}) is a standard normal. We use SGD to minimize the negative log-probability, using the Adam optimizer \cite{kingma2014adam} with a learning rate of 0.001. We additionally clip the norm of the gradients to a maximum of 10.
+
+Given the observation that a learned scale term might not offer a significant advantage compared to using a fixed scale term \cite{kingma2016improved}, we additionally run experiments with a constant scale of 1. In this case the flow is volume-preserving since the log-determinant of the Jacobian is zero. This setting has the positive effect of reducing the number of parameters and simplifying the update of the Jacobian, which stays the same.
+
+\subsection*{Question 3.8}
+
+The resulting training curves are shown in Figure \ref{fig:nf_curves}, where we measure the average bit per dimension (bpd), corresponding to the negative $\log_2$-probability per pixel in an image. We obtain a bpd of 1.82 and 1.83 in the training and validation sets, respectively, when using a learned scale. For a fixed scale, the bpd is 2.03 and 2.04, respectively. These values are lower than the expected bpd of 8 bits for a random model, given that the modeled images have discrete values between 0 and 255.
+
+The difference in performance between the models with learned and fixed scale is relatively higher than that observed by Kingma et al. (2016) \cite{kingma2016improved}. The training curves also show that the model with a fixed scale starts at a higher loss, which highlights the importance of the flexibility that a learned scale adds to the model for this dataset.
 
 
+Samples from the models are shown in Figure \ref{fig:nf_samples}. We observe that halfway through training, several samples are already similar to real digits. We note a slight blurriness in the samples from the model with a fixed scale, which shows that in this case a learned scale produces a model with better generative capability. We can see that samples from the model are sharp, compared to the samples and means from the VAE. On the other hand, samples from the GAN have a better quality, as most of them resemble actual digits.
+ 
 
+\begin{figure}[t]
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.72]{img/nf_curves_default.pdf}
+\caption{}
+\end{subfigure}
+\begin{subfigure}{0.49\textwidth}
+\centering
+\includegraphics[scale=0.72]{img/nf_curves_noscale.pdf}
+\caption{}
+\end{subfigure}
+ \caption{Bit per dimension for the density model with normalizing flows. (a) With a learned scale term, the lowest values of bpd are 1.82 and 1.83 in the training and validation sets, respectively. (b) With a fixed scale of 1, the lowest values are 2.03 and 2.04, respectively.}
+\label{fig:nf_curves}
+\end{figure}
 
+\begin{figure}[t]
+\begin{subfigure}{0.32\textwidth}
+\centering
+\includegraphics[scale=0.2]{img/nf_sample_0}
+\end{subfigure}
+\begin{subfigure}{0.32\textwidth}
+\centering
+\includegraphics[scale=0.2]{img/nf_sample_20}
+\end{subfigure}
+\begin{subfigure}{0.32\textwidth}
+\centering
+\includegraphics[scale=0.2]{img/nf_sample_40}
+\end{subfigure}\\
+\begin{subfigure}{0.32\textwidth}
+\centering
+\includegraphics[scale=0.2]{img/nf_noscale_sample_0}
+\end{subfigure}
+\begin{subfigure}{0.32\textwidth}
+\centering
+\includegraphics[scale=0.2]{img/nf_noscale_sample_20}
+\end{subfigure}
+\begin{subfigure}{0.32\textwidth}
+\centering
+\includegraphics[scale=0.2]{img/nf_noscale_sample_40}
+\end{subfigure}
+ \caption{Samples from the density model with normalizing flows, from left to right: before training, halfway through and after training. Top row: learned scale. Bottom row: fixed scale of 1.}
+\label{fig:nf_samples}
+\end{figure}
 
+\section{Conclusion}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+We have explored three generative models: VAEs, GANs and Normalizing Flows, each of which with a different approach towards generative modeling. The VAE uses a variational inference framework, therefore incurring in an approximation error as expressed by the gap between the ELBO and the log-likelihood. Among the sources of this error we can identify the prescription of a distribution for the prior and the approximate posterior, which might not be a suitable choice for generative models of high dimensional data. GANs, on the other hand, are not constrained by the choice of a prior, as samples from it are passed to the generator which transforms it into a sensible output. Unlike VAEs and NFs, GANs as described in this work are generative models with an implicit density that cannot be used to calculate the log-likelihood given an observation (strictly speaking, it is not possible to calculate it with VAEs either, but a lower bound can be obtained instead). The absence of an encoder in GANs also prevents from doing inference where a code for an observation is required, as can be done with a VAE. NFs address some of the limitations in GANs and VAEs by allowing for exact calculation of the log-likelihood, inference of the latent variable from an observation, and the possibility to turn a simple Gaussian prior into a more complex distribution through a series of transformations. Nevertheless, the flexibility of each transformation is constrained to being invertible, and having a Jacobian with a sufficiently low algorithmic complexity. The properties of each model reflect how generative modeling is an active area of research in deep learning, with multiple directions for future work.
 
 \bibliographystyle{unsrt}
 \bibliography{refs}
